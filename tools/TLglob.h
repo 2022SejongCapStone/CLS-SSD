@@ -8,13 +8,6 @@
  * (These definitions may have to change from machine to machine.)
  *
  */
-
-/* Updated library naming conventions to T+ 6.0 standard - JRC 11.7.18 */
-/* Revised exception handling to be consistent with T+ 6.0 standard - JRC 11.7.18 */
-
-/* Revised to be both 32- and 64-bit compatible - JRC 11.8.15 */
-/* Removed obsolete SYS5 signal handling logic - JRC 11.8.15 */
-/* Added missing implicit includes - JRC 11.8.15 */
  
 /* Fixed bug in file table overflow handling -- JRC 21.8.95 */
 /* Changed preprocessor directives to be legal in old non-ANSI C -- JRC 14.19.95 */
@@ -23,19 +16,28 @@
 /* Added TL_RevertSignalHandlers to assist in converting to re-entrant subroutine -- JRC 20.5.97 */
 /* Fixed another bug in file table overflow on too many arguments -- JRC 27.3.08 */
 
-/* TLE - Signal handling routines */
+/* TLA - Signal handling routines */
 #include <setjmp.h>
 struct TLHAREA {
-	int		quitCode;
+	long		quitCode;
+#ifdef SOLARIS
+	sigjmp_buf	quit_env;
+#else
 	jmp_buf		quit_env;
+#endif
 	struct TLHAREA * old_handlerArea;
 } *TL_handlerArea;
-struct TLHAREA * TL_currentHandlerArea;
+long TL_quitting;
 struct TLHAREA defaultHandlerArea;
 
 /* TLB - memory management routines */
+#ifdef MAC
+#include <memory.h>
+#endif
+#ifdef AS400
 #include <stdlib.h>
-void *TL_mallocs[100];
+#endif
+void *TL_mallocs[25];
 int TL_nextmalloc;
 
 /* TLI - I/O routines */
@@ -50,13 +52,23 @@ char TL_pattern[25];
 int TL_TLI_lookahead;
 
 /* Program parameters */
-int TL_TLI_TLIARC;
+long TL_TLI_TLIARC;
 char **TL_TLI_TLIARV;
 
 /* Signal handling */
+/* (This double #ifdef awkwardness is for compatibility with old C's!) */
 #ifdef BSD
 #include <signal.h>
 #endif
+#ifdef SYS5
+#include <signal.h>
+#endif
+
+/* Mac dependent stuff */
+#ifdef MAC
+#include <CursorCtl.h>
+#endif
+
 
 void TL_RevertSignalHandlers ()
     {
@@ -83,11 +95,33 @@ void TL_RevertSignalHandlers ()
 	}
 
 #endif
+
+#ifdef SYS5
+	/* Version using System V signals */
+	
+	if (sigset(SIGINT, SIG_IGN) != SIG_IGN) {
+	    (void) sigset(SIGINT, SIG_DFL);
+	}
+	if (sigset(SIGILL, SIG_IGN) != SIG_IGN) {
+	    (void) sigset(SIGILL, SIG_DFL);
+	}
+	if (sigset(SIGFPE, SIG_IGN) != SIG_IGN) {
+	    (void) sigset(SIGFPE, SIG_DFL);
+	}
+#ifdef SIGBUS
+	if (sigset(SIGBUS, SIG_IGN) != SIG_IGN) {
+	    (void) sigset(SIGBUS, SIG_DFL);
+	}
+#endif
+	if (sigset(SIGSEGV, SIG_IGN) != SIG_IGN) {
+	    (void) sigset(SIGSEGV, SIG_DFL);
+	}
+#endif
     }
 
 
 void TL_SignalHandler (signalNo)
-    int signalNo;
+    long signalNo;
     {
 	/* revert to default signal handlers */
 
@@ -121,11 +155,78 @@ void TL_SignalHandler (signalNo)
 	}
 
 	/* call the Turing handler */
-	TL_currentHandlerArea = TL_handlerArea;
-	TL_currentHandlerArea->quitCode = signalNo;
-        if (TL_currentHandlerArea != &defaultHandlerArea) 
-	    TL_handlerArea = TL_currentHandlerArea->old_handlerArea; 
-	longjmp (TL_currentHandlerArea->quit_env, signalNo);
+	if (TL_quitting) {
+	    TL_handlerArea = TL_handlerArea->old_handlerArea; 
+	}
+	TL_quitting = 1; 
+	TL_handlerArea->quitCode = signalNo;
+#ifdef SOLARIS
+	siglongjmp (TL_handlerArea->quit_env, signalNo);
+#else
+	longjmp (TL_handlerArea->quit_env, signalNo);
+#endif
+#endif
+
+#ifdef SYS5
+	/* Version using System V signals */
+
+	/* release the signal, we're not returning */
+	(void) sigrelse (signalNo);
+
+	/* revert to default signal handlers */
+	if (sigset(SIGINT, SIG_IGN) != SIG_IGN) {
+	    (void) sigset(SIGINT, SIG_DFL);
+	}
+	if (sigset(SIGILL, SIG_IGN) != SIG_IGN) {
+	    (void) sigset(SIGILL, SIG_DFL);
+	}
+	if (sigset(SIGFPE, SIG_IGN) != SIG_IGN) {
+	    (void) sigset(SIGFPE, SIG_DFL);
+	}
+#ifdef SIGBUS
+	if (sigset(SIGBUS, SIG_IGN) != SIG_IGN) {
+	    (void) sigset(SIGBUS, SIG_DFL);
+	}
+#endif
+	if (sigset(SIGSEGV, SIG_IGN) != SIG_IGN) {
+	    (void) sigset(SIGSEGV, SIG_DFL);
+	}
+
+	/* print the appropriate message */
+	switch (signalNo) {
+	    case SIGINT:
+		fputs ("Program terminated\n", stderr);
+		break;
+	    case SIGILL:
+		fputs ("Illegal instruction\n", stderr);
+		break;
+	    case SIGFPE:
+		fputs ("Floating point exception\n", stderr);
+		break;
+#ifdef SIGBUS
+	    case SIGBUS:
+		fputs ("Bus error\n", stderr);
+		break;
+#endif
+	    case SIGSEGV:
+		fputs ("Segmentation violation\n", stderr);
+		break;
+	    default:
+		fprintf (stderr, "TXL ERROR: Unexpected signal %d\n", signalNo);
+		break;
+	}
+
+	/* call the Turing handler */
+	if (TL_quitting) {
+	    TL_handlerArea = TL_handlerArea->old_handlerArea; 
+	}
+	TL_quitting = 1; 
+	TL_handlerArea->quitCode = signalNo;
+#ifdef SOLARIS
+	siglongjmp (TL_handlerArea->quit_env, signalNo);
+#else
+	longjmp (TL_handlerArea->quit_env, signalNo);
+#endif
 #endif
     }
 
@@ -144,6 +245,20 @@ void TL_InitSignalHandlers ()
 	(void) signal(SIGBUS, TL_SignalHandler);
 #endif
 	(void) signal(SIGSEGV, TL_SignalHandler);
+#endif
+
+#ifdef SYS5
+	/* Version using System V signals */
+
+	if (sigset(SIGINT, SIG_IGN) != SIG_IGN) {
+	    (void) sigset(SIGINT, TL_SignalHandler);
+	}
+	(void) sigset(SIGILL, TL_SignalHandler);
+	(void) sigset(SIGFPE, TL_SignalHandler);
+#ifdef SIGBUS
+	(void) sigset(SIGBUS, TL_SignalHandler);
+#endif
+	(void) sigset(SIGSEGV, TL_SignalHandler);
 #endif
     }
 
@@ -176,6 +291,7 @@ char **argv;
     TL_handlerArea = &defaultHandlerArea;
     TL_handlerArea->old_handlerArea = 0;
     TL_handlerArea->quitCode = 0;
+    TL_quitting = 0;
     TL_InitSignalHandlers ();
 
     /* initalize heap memory map */
@@ -206,7 +322,11 @@ void TL_finalize ()
 
     /* Release all heap memory */
     for (i=0; i<25; i++) {
+#ifdef MAC
+        if (TL_mallocs[i] != NULL) DisposePtr (TL_mallocs[i]);
+#else
         if (TL_mallocs[i] != NULL) free (TL_mallocs[i]);
+#endif
     }
     
     /* Revert signal handlers */

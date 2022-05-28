@@ -1,15 +1,21 @@
-% NiCad blind renaming - Python blocks
+% Blind renaming - Python blocks
 % Jim Cordy, May 2010
-
-% Rev 19.5.20 JRC - Added blind renaming for numeric and string literals
-
-% NiCad tag grammar
-include "nicad.grm"
 
 % Using Python grammar
 include "python.grm"
 
 % Redefinition for potential clones
+redefine suite
+	[block]
+    |   [simple_stmt] [endofline]
+end redefine
+
+define block
+    [indent] [endofline]
+	[repeat stmt_or_newline+]
+    [dedent]
+end define
+
 define potential_clone
     [block]
 end define
@@ -23,16 +29,13 @@ redefine dedent
 end redefine
 
 % Generic blind renaming
-include "generic-rename-blind.rul"
+include "generic-rename-blind.txl"
 
 % Specialize for Python
 redefine xml_source_coordinate
-    '<source [SPOFF] 'file=[stringlit] [SP] 'startline=[stringlit] [SP] 'endline=[stringlit] '> [SPON] [newline]
+    '< [SPOFF] 'source [SP] 'file=[stringlit] [SP] 'startline=[stringlit] [SP] 'endline=[stringlit] '> [SPON] [newline]
 end redefine
 
 redefine end_xml_source_coordinate
-    '</source> [newline]
+    '< [SPOFF] '/ 'source '> [SPON] [newline]
 end redefine
-
-% Literal renaming for Python
-include "py-rename-literals.rul"

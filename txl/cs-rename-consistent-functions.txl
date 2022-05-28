@@ -1,15 +1,22 @@
-% NiCad consistent renaming - C# functions
+% Consistent renaming - C# functions
 % Jim Cordy, May 2010
-
-% Rev 19.5.20 JRC - Added blind renaming for numeric and string literals
-
-% NiCad tag grammar
-include "nicad.grm"
 
 % Using C# grammar
 include "csharp.grm"
 
 % Redefinition for potential clones
+
+% Temporary handling of designated Linq extensions
+redefine invocation_operator
+	...
+    |	'(( [repeat argument_list_or_key] '))
+end redefine
+
+define argument_list_or_key
+	[argument_list]
+    |	'in
+end define
+
 define method_definition
     [method_header]				
     '{  [NL][IN] 
@@ -22,7 +29,5 @@ define potential_clone
 end define
 
 % Generic consistent renaming
-include "generic-rename-consistent.rul"
+include "generic-rename-consistent.txl"
 
-% Literal renaming for C#
-include "cs-rename-literals.rul"

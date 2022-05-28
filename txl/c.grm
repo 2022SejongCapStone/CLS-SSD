@@ -1,7 +1,7 @@
-% TXL C 2018 Basis Grammar
-% Version 6.4, November 2020
+% TXL C Basis Grammar
+% Version 5.2, July 2011
 
-% Copyright 1994-2020 James R. Cordy, Andrew J. Malton and Christopher Dahn
+% Copyright 1994-2011 James R. Cordy, Andrew J. Malton and Christopher Dahn
 
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
@@ -25,52 +25,11 @@
 
 % Modification Log:
 
-% v6.4, Jim Cordy, November 2020.
-%    Fixed Linux macro blocks due to problems uncovered by NiCad regression suite.
-%    Added more observed Linux type qualifiers and macro features. 
-%    Simplified and optimized declaration subgrammar. 
-%    Refactored enum definitions to avoid excessive backtracking.
-%    Refactored Kernighan & Plauger (original C) parameter declarations.
-%    Added guards to avoid misparsing simple macro and function calls as declarations. 
-%    Revalidated and retuned.
-
-% v6.3, Jim Cordy, November 2020.
-%    Fixed for statement output formatting.
-%    Fixed parsing of parameter declarators.
-%    Fixed parsing and output formatting of compound initializers.
-%    Refactored expressions and expression statements to simplify.
-%    Refactored struct definitions to avoid excessive backtracking.
-%    Refactored Linux macro handling to increase parse precision.
-%    Revalidated and retuned.
-
-% v6.2, Jim Cordy, October 2020.
-%    Enabled PREPROCESSOR by default.
-%    Added observed { } macro calls.
-%    Added observed ELIF and LOOP statements.    
-%    Added observed static const to macro declarations.
-%    Removed global [unknown_declaration_or_statement] to avoid misparses.
-
-% v6.1, Jim Cordy, August 2020.
-%    Refactored Kernighan & Plauger (old) C function handling.
-%    Fixed some minor errors in struct and macro handling.
-
-% v6.0, Jim Cordy, July 2019.
-%    Updated to handle current Linux kernel.
-%    Corrected several common misparses introduced by macro extensions.
-%    Renamed and refactored to be more consistent with ISO C 2018 standard.
-%    Hand validated parse trees for Linux and several Gnu apps.
-%    Cleaned up and minimized Linux macro extensions.
-
-% v5.3, Jim Cordy, March 2012.
-%    Refactored to use [condition] for all if/while conditions, 
-%    [block] for all compound statements and function bodies,
-%    and [literal] for all literal values.
-
 % v5.2, Jim Cordy, June 2011.
 %    Fixed performance / parsing problem involving macro cast operators.
 
 % v5.1, Jim Cordy, January 2011.
-%    Added new Linux gnu_attribute specs.
+%    Added new Linux attribute specs.
 
 % v5.0, Jim Cordy, November 2010.
 %    Fixed known bugs.
@@ -113,10 +72,7 @@
 #define GNU
 
 % Comment out this line to disallow common Linux and other macro forms
-#define LINUX
-
-% Uncomment this line to use robust parsing extensions (may introduce misparses)
-% #define ROBUST
+#define MACROS
 
 
 % ===== Lexical properties of C =====
@@ -133,57 +89,33 @@ end comments
 
 % Ignore line continuation characters
 tokens
-    ignore	...
-	    |	"\\\n"
-	    |   ""
+    ignore        "\\\n"
 end tokens
 
 % Add the special literal constants of C
 tokens
-    stringlit	"[(u8)uUL]?\"[(\\\c)#\"]*\""
-    charlit	"[uUL]?'[(\\\c)#']*'"
-
-% integer constants
-% default [number], which includes [octalnumber]
-    longnumber	"\d+[LUlu]+"
-    hexnumber	"0[xX][\dAaBbCcDdEeFf]+[LUlu]*"
-
-    % floating point constants
-    dotfloatnumber  ".\d+([eE][+-]?\d+)?[FLfl]?"		% separate so we can correct formatting
-    floatnumber     "\d+.\d*([eE][+-]?\d+)?[FLfl]?#\:."
-		|   "\d+(.\d*)?[eE][+-]?\d+[FLfl]?"
-		|   "\d+(.\d*)?([eE][+-]?\d+)?[FLfl]"
-    hexfloatnumber  "0[xX][\dAaBbCcDdEeFf]*.[\dAaBbCcDdEeFf]+([pP][+-]?[\dAaBbCcDdEeFf]+)?[FLfl]?"
-		|   "0[xX][\dAaBbCcDdEeFf]+.[\dAaBbCcDdEeFf]*([pP][+-]?[\dAaBbCcDdEeFf]+)?[FLfl]?"
-		|   "0[xX][\dAaBbCcDdEeFf]+(.[\dAaBbCcDdEeFf]*)?[pP][+-]?[\dAaBbCcDdEeFf]+[FLfl]?"
-		|   "0[xX][\dAaBbCcDdEeFf]+(.[\dAaBbCcDdEeFf]*)?([pP][+-]?[\dAaBbCcDdEeFf]+)?[FLfl]"
+    long          "\d+[LUlu]+"
+    hex           "0[xX][\dAaBbCcDdEeFf]+(.\d*)?p\d+[FLfl]?"
+		| "0[xX][\dAaBbCcDdEeFf]+[LUlu]*"
+    stringlit     "\"[(\\\c)#\"]*\""
+    dotfloat      ".\d+([eE][+-]?\d+)?[FLfl]?"
+    float         "\d+.\d*([eE][+-]?\d+)?[FLfl]?#\:."
+		| "\d+(.\d*)?[eE][+-]?\d+[FLfl]?"
+		| "\d+(.\d*)?([eE][+-]?\d+)?[FLfl]"
 end tokens
 
 % C identifiers may begin with digits
 tokens
-    id	    "[\a_$]\i*\#?"	% observed ending # - JRC
-	|   "\d+\a\i*\#?"	% C allows leading digits
+    id		| "\d+\i+"
 end tokens
 
-#ifdef LINUX
+#ifdef MACROS
 tokens
-    % Due to TXL 10.7 bugs, the following patterns do not work, and we need to recode them as the below.
-    % foreachid     "(\a+_+)*for_each(_\i+)*" 
-    %           |   "(\a+_+)*foreach(_\i+)*" 
-    %           |   "FOR_ALL_\i+"      
-    foreachid	    "for_?each\i*"
-    		|   "\a[\a\d]*_+for_?each\i*"
-    		|   "\a[\a\d]*_+\a[\a\d]*_+for_?each\i*"
-    		|   "\a[\a\d]*_+\a[\a\d]*_+\a[\a\d]*_+for_?each\i*"
-    		|   "FOR_ALL_\i+"
-    % Due to TXL 10.7 bugs, the following patterns do not work, and we need to recode them as the below.
-    % whileeachid  "(\a+_+)*while_each(_\i+)*" 
-    %           |  "(\a+_+)*whileeach(_\i+)*" 
-    whileeachid    "while_?each\i*"
-    		|  "\a[\a\d]*_+while_?each\i*"
-    		|   "\a[\a\d]*_+\a[\a\d]*_+while_?each\i*"
-    		|   "\a[\a\d]*_+\a[\a\d]*_+\a[\a\d]*_+while_?each\i*"
-    gnuextensionid "__\i+"
+    foreachid    "(\a+_)?for_each(_\i+)?" 
+	      |  "FOR_ALL_\i+"      
+	      |  "foreach"
+    whileeachid  "while_each(_\i+)?" 
+              |  "whileeach" 
 end tokens
 #endif
 
@@ -199,7 +131,7 @@ tokens
     % A preprocessor line is one beginning with a # and then anything to end of line (\n#n*)
     % If the line ends in backslash, then it continues on the next line (\\\n)
     % Comments are assumed to be part of the preprocessor line (/\*#[(\*/)]*\*/)
-    preprocessor_line	"\#[(\\\n)(/\*#[(\*/)]*\*/)#n]*"
+    preprocessor_line  	  "\#[(\\\n)(/\*#[(\*/)]*\*/)#n]*"
 end tokens
 #endif
 
@@ -229,28 +161,25 @@ end compounds
 % ===== The unified syntax of ANSI, Kernighan & Plauger and Gnu C =====
 
 define program
-    [translation_unit]
+    [compilation_unit]
 end define
 
 % A C compilation unit is a sequence of declarations and function definitions 
-define translation_unit
-	[repeat function_definition_or_declaration]
+define compilation_unit
+    [repeat function_definition_or_declaration]
 end define
 
 define function_definition_or_declaration
-    	[function_definition]  	
-    |	[struct_or_union_definition]  	
-    |	[enum_definition]  	
-    |	[declaration] 		
-#ifdef GNU
-    |	[asm_statement] 
-#endif
-#ifdef LINUX
-    |	[macro_declaration_or_statement]  
-#endif
+	[function_definition]  
+    |	[declaration] 
 #ifdef PREPROCESSOR
     |	[preprocessor]
 #endif
+    |	[compound_statement] [NL]	% sometimes, function headers are ifdefed out
+#ifdef GNU
+    |	[macro_declaration_or_statement]
+#endif
+    |	[unknown_declaration_or_statement]
 end define
 
 
@@ -261,82 +190,71 @@ define function_definition
 #ifdef PREPROCESSOR
     [repeat preprocessor_function_header]
 #endif
-    [opt KP_parameter_decls] 
+    [opt KR_parameter_decls]
     [compound_statement] [NL]
 end define
 
 define function_header
-    [not simple_function_call_statement] 		% guard to avoid misparsing simple macro and function calls
-    [opt declaration_specifiers] [function_declarator]
-    [opt gnu_attributes]
-end define
-
-define function_declarator
- 	[declarator] [function_declarator_extension] 
-    |	[see 'DEFUN] [macro_call] [function_declarator_extension] 	% observed Emacs project 
-    |	'( [function_declarator] ')
+    [opt decl_specifiers] [declarator] [function_declarator_extension] 
+#ifdef GNU
+    [repeat attribute_spec]
+#endif
+#ifdef GNU
+    | 'YY_DECL [NL]
+#endif
 end define
 
 % Allow for #ifdef'd function headers
 #ifdef PREPROCESSOR
 define preprocessor_function_header
-    [preprocessor] 
-    [function_header] 
+	[NL] [preprocessor] 
+	[function_header] 
+#ifdef MACROS
+    |   [NL] [function_header]
+#endif
 end define
 
 define preprocessor
-    [NL] [TAB_1] [preprocessor_line] [NL]
+    [TAB_1] [preprocessor_line] [NL]
 end define
 #endif
 
 % Kernighan & Plauger (old) C does parameter declarations following the signature
-define KP_parameter_decls
-    [NL] [IN] 
-        [repeat KP_simple_declaration] 
-#ifdef LINUX
-        [opt KP_variadic_declaration_spec]
-#endif
-    [EX]
+define KR_parameter_decls
+    [NL] [IN] [repeat KR_simple_declaration+] [EX] 
 end define
 
-define KP_simple_declaration
-    [parameter_declaration] [semi] 	
+define KR_simple_declaration
+    [opt decl_specifiers] [KR_simple_type_name] [opt decl_specifiers] [list declarator+] [semi]
 end define
 
-#ifdef LINUX
-define KP_variadic_declaration_spec
-    [macro_name] [NL] 
+% We don't want to allow any type at all here, otherwise we get misparse problems 
+% with Linux macro forms followed by declarations
+define KR_simple_type_name
+	[simple_type_name] 	
+    |	[struct_or_union] [id]
+    |	[enum_specifier]
+    |	[bit_qualifier]
 end define
-#endif
 
 
 % ===== C Declarations =====
 
 define declaration
-    	[not simple_function_call_statement] 			% guard to avoid misparsing simple macro and function calls
-	[declaration_specifiers] [declarator_opt_init_semi] 	
+	[decl_specifiers] [list init_declarator] [semi]
+    | 	[decl_specifiers] [declarator] '= [compound_initializer] [NL]	% no semi
     | 	[extern_langauge_declaration] 
     | 	[null_declaration]
-#ifdef LINUX
+#ifdef GNU
+    | 	[local_label] [list declarator+] 
+    | 	[asm_spec] 
+#endif
+#ifdef MACROS
     | 	[machinestart_declaration] 
 #endif
 #ifdef PREPROCESSOR
     | 	[preprocessor]
 #endif
-end define
-
-define simple_function_call_statement
-    % used as a guard to avoid misparsing macro and function call statements as declarations
-    [not 'main] [identifier] [arguments_extension] [not declarator_opt_init_semi] [not pointer] [not declarator_extension] [not '{] 
-end define
-
-define declarator_opt_init_semi
-	[declarator_opt_init_list] [semi]
-    | 	[opt declarator] [opt '=] [compound_initializer] [NL]	% allow no semi on compound initializer
-end define
-
-define declarator_opt_init_list
-    [list declarator_opt_init+]
 end define
 
 define extern_langauge_declaration
@@ -353,269 +271,199 @@ define semi
     '; [NL]
 end define
 
-define declaration_specifiers
-    [repeat declaration_specifier+] 
-end define
-
-define declaration_specifier_or_declarator
-    [declaration_specifier] | [declarator]
-end define
-
-define declaration_specifier
-	[storage_class_specifier]
-    |	[type_specifier]
-    |	[type_qualifier]
-    |	[function_specifier]
-    |	[alignment_specifier]
-#ifdef LINUX
-    |	[macro_type_specifier] 
-#endif
 #ifdef GNU
-    |	[gnu_attribute_spec]
+define local_label
+    '__label__
+end define
 #endif
+
+define decl_specifiers
+    [repeat decl_qualifier_or_type_specifier+] 
+end define
+
+define decl_qualifier_or_type_specifier
+	[decl_qualifier] 
+    |	[type_specifier]
+#ifdef MACROS
+    |	[not asm_spec] [macro_specifier] [opt nosemiNL] 
+#endif
+end define
+
+define nosemiNL
+    [not ';] [NL]
 end define
 
 
 % ===== C Structures =====
 
-define struct_or_union_definition
-    [opt declaration_specifiers]
-    [struct_or_union] 
-#ifdef GNU
-    [opt gnu_attributes]
-#endif
-    [opt identifier] [struct_or_union_body]
-#ifdef GNU
-    [opt gnu_attributes]
-#endif
-end define
-
 define struct_or_union_specifier
     [struct_or_union] 
 #ifdef GNU
-    [opt gnu_attributes]
+    [repeat attribute_spec]
 #endif
-#ifdef LINUX
-    [opt macro_type_specifier]
+    [opt reference_id]
+    [struct_or_union_body]
+#ifdef GNU
+    [repeat attribute_spec]
+#endif
+|
+    [struct_or_union] 
+#ifdef GNU
+    [repeat attribute_spec]
+#endif
+    [reference_id]
+#ifdef GNU
+    [repeat attribute_spec]
 #endif
 end define
 
 define struct_or_union_body
-    '{						[IN] [NL]
-	[opt struct_declaration_list]		[EX]
-    '}  
-#ifdef GNU
-    [opt gnu_attributes]
-#endif
-    [opt declarator_opt_init_semi] 		[NL]
+    {					[IN] [NL]
+	[repeat member_declaration]	[EX]
+    }
 end define
 
-define struct_declaration_list
-    [repeat struct_declaration+]
-end define
-
-define struct_declaration
-	[struct_declaration_]
-    |	[struct_or_union_definition]  	
-    |	[enum_definition]  	
+define member_declaration
+	[decl_specifiers] [list member_declarator] [semi]
     | 	[null_declaration]
-#ifdef LINUX
-    |	[macro_declaration_or_statement]
-#endif
 #ifdef PREPROCESSOR
     |   [preprocessor]
 #endif
 end define
 
-define struct_declaration_
-    	[declaration_specifiers] [struct_declarator_list] [semi]	% prefer with declarator
-    |	[declaration_specifiers] [semi]					% but C allows none
-end define
-
-define struct_declarator_list
-    [list struct_declarator+]
-end define
-
-define struct_declarator
-    [declarator] [opt struct_bit_field_size]
+define member_declarator
+    [declarator] [opt bitfieldsize]
 #ifdef GNU
-    [opt sub_struct_declarators]
-    [repeat gnu_attributes_or_asm]
+    [opt sub_member_declarators]
+    [repeat attributes_or_asm]
 #endif
 |   
-    [struct_bit_field_size]
+    [bitfieldsize]
 end define
 
-define struct_bit_field_size
+#ifdef GNU
+define sub_member_declarators
+    '( [list member_declarator] ') 
+end define
+#endif
+
+% Gnu attributes 
+#ifdef GNU
+define attributes_or_asm
+	[attribute_spec]
+    |   [asm_spec]
+end define
+
+define attribute_spec
+	[attribute_specifier] '('( [list attribute_extension] ')')
+    |	[IN] [NL] [acquires_releases] '( [expression] ') [EX]	% Linux
+#ifdef MACROS
+    |   [upper_macro_name]
+#endif
+end define
+
+define acquires_releases
+	'__acquires | '__releases
+end define
+
+define attribute_specifier
+    '__attribute__ | '__attribute
+end define
+
+define attribute_extension
+    [attribute_name] [opt attribute_arguments]
+end define
+
+define attribute_name
+	[id] 
+    |   [cv_qualifier]	% observed - JRC 15.10.09
+end define
+
+define attribute_arguments
+    '( [repeat attribute_argument+] ')
+end define
+
+define attribute_argument
+	'( [repeat attribute_argument] ')
+    |   [not '(] [not ')] [token_or_key]
+end define
+#end if
+
+define bitfieldsize
     ': [constant_expression]
 end define
 
-#ifdef GNU
-define sub_struct_declarators
-    '( [list struct_declarator] ') 
-end define
-#endif
 
-define storage_class_specifier
-	[typedef_specifier]
-    |   [extern_specifier]
-    |   [static_specifier]
-    |   [thread_local_specifier]
-    |	[auto_specifier]
-    |   [register_specifier]
+% A qualifier is an attribute of the declared item, as in "static" of "static int *X;"
+
+define decl_qualifier
+	[sc_specifier]
+    |   [type_qualifier]
 #ifdef GNU
-    |	[near_far_specifier]
-    |	[local_specifier]
-    |	[vector_specifier]
+    |   [extension_specifier]
+    |   [weak_specifier]
+    |   [declspec_specifier]
 #endif
 end define
 
-define typedef_specifier
-    'typedef
+#ifdef MACROS
+define macro_specifier
+    [macro_call]
 end define
+#endif
 
-define extern_specifier
-    'extern [stringlit?]
-end define
-
-define static_specifier
-        'static
+define sc_specifier
+	'auto
+    |   'register
+    |   'static
+    |   'extern 
+    |   'far
+    |   'near
+    |   'typedef
 #ifdef GNU
-    |	'STATIC
+    |	'local
+    |	'vector
+    |	'const_debug
+#endif
+#ifdef MACROS
+    | 'INIT | 'STATIC  % Linux
+    | 'NEAR | 'FAR 
 #endif
 end define
 
-define thread_local_specifier
-    '_Thread_local
-end define
-
-define auto_specifier
-    'auto
-end define
-
-define register_specifier
-    'register
-end define
-
-define near_far_specifier
-    'near | 'far | 'NEAR | 'FAR
-end define
-
-define local_specifier
-    'local
-end define
-
-define vector_specifier
-    'vector
-end define
 
 % A type_specifier is the actual type of the item, as in "int" of "static int *X;"
 
 define type_specifier
-	[void_specifier]
-    |	[char_specifier]
-    |	[short_specifier]
-    |	[int_specifier]
-    |	[long_specifier]
-    |	[float_specifier]
-    |	[double_specifier]
-    |	[signed_specifier]
-    |	[unsigned_specifier]
-    |	[bool_specifier] 
-    |	[complex_specifier]
-    |	[atomic_type_specifier]
-    |   [struct_or_union_specifier]
+	[simple_type_name]
     |   [enum_specifier]
-    |	[typedef_name] 
+    |   [struct_or_union_specifier]
 #ifdef GNU
-    |   [typeof_specifier]
+    |   [typeof_expression]
+    |   [complex_specifier]
 #endif
 end define
 
-define macro_type_specifier
-    [macro_name] '( [repeat declaration_specifier+] [repeat pointer] [SPON] ') 
-end define
-
-define void_specifier
-    'void
-end define
-
-define char_specifier
-    'char
-end define
-
-define short_specifier
-    'short
-end define
-
-define int_specifier
-    'int
-end define
-
-define long_specifier
-    'long
-end define
-
-define float_specifier
-    'float
-end define
-
-define double_specifier
-    'double
-end define
-
-define signed_specifier
-	'signed
 #ifdef GNU
-    | 	'signed__ | '__signed__ | '__signed       
-#endif
-end define
-
-define unsigned_specifier
-	'unsigned
-#ifdef GNU
-    |	'unsigned__ | '__unsigned__ | '__unsigned       
-#endif
-end define
-
-define bool_specifier
-	'_Bool
-#ifdef GNU
-    'bool | '__bool | '__bool__ | 'bool__ 
-#endif
-end define
-
-define complex_specifier
-    [complex_] [repeat simple_type_or_qualifier]
-end define
-
-define complex_
-	'_Complex 
-#ifdef GNU
-    |	'complex | '__complex | '__complex__ | 'complex__ 
-#endif
-end define
-
-define atomic_type_specifier
-    '_Atomic '( [type_name] ')
-end define
-
-define typedef_name
-    [identifier]
-end define
-
-#ifdef GNU
-define typeof_specifier
-    [typeof_] '( [expression_or_type_name] ')      
-end define
-
-define typeof_
-    'typeof | '__typeof | '__typeof__ | 'typeof__            
+define typeof_expression
+	[typeof_specifier] '( [expression_or_type_name] ')      
 end define
 
 define expression_or_type_name
 	[type_name]
     |   [expression]
+end define
+
+define typeof_specifier
+    '__typeof | 'typeof | '__typeof__ | 'typeof__            
+end define
+
+define complex_specifier
+    [complex] [repeat simple_type_or_qualifier]
+end define
+
+define complex
+    '__complex | '__complex__ | '__Complex
 end define
 
 define simple_type_or_qualifier
@@ -625,214 +473,148 @@ end define
 #endif
 
 define type_qualifier
-	[const_specifier]
-    |	[volatile_specifier]
-    |   [restrict_specifier]
-    |	[atomic_specifier]
+	[bit_qualifier]
+    |   [cv_qualifier]
 #ifdef GNU
-    |   [weak_specifier]
-    |	[initdata_specifier]
-    |	[gnu_type_qualifier]
-#endif
-#ifdef LINUX
-    |   [linux_type_qualifier]
+    |   [inline_qualifier]
+    |   [restrict_qualifier]
+    |   [init_qualifier]
+    |   [exit_qualifier]
+    |   [user_qualifier]
+    |   [force_qualifier]
+    |   [asmlinkage_qualifier]
+    |	[zexport_qualifier]
+    |	[attribute_spec] 
 #endif
 end define
 
+define bit_qualifier
+	'long
+    |   'short
+    |   'signed
+    |   'unsigned
 #ifdef GNU
-define gnu_type_qualifier
-        'internal_function  % bison
-    |   'yyconst            % postgresql
-    |	'pascal             % macintosh
-    |	[gnuextensionid]
-end define
+    |   '__signed__     
+    |   '__signed       
 #endif
-
-#ifdef LINUX
-define linux_type_qualifier
-        'asmlinkage
-    |	'_license
-    |	'_version
-    |   [macro_name] [not '(] 
-end define
-
-define declarator_init_or_close_paren
-	[declarator]
-    |	'=
-    |	')
-end define
-#endif
-
-define const_specifier
-	'const
-#ifdef GNU
-    |	'__const | '__const__ | 'const__ | 'CONST
-#endif
-#ifdef LINUX
-    |	'const_debug
-#endif
-end define
-
-define volatile_specifier
-	'volatile
-#ifdef GNU
-    |	'__volatile | '__volatile__ | 'volatile__ | 'VOLATILE
-#endif
-end define
-
-define restrict_specifier
-	'restrict
-#ifdef GNU
-    | 	'__restrict | 'restrict__ | '__restrict__ | 'RESTRICT
-#endif
-end define
-
-define atomic_specifier
-    '_Atomic
 end define
 
 #ifdef GNU
-define weak_specifier
-    '__weak | '__weak__ | 'weak__
+define inline_qualifier
+	'__inline | '__inline__ | 'inline__ | 'inline 
+    | 'SBA_INLINE  % Linux
 end define
 
-define initdata_specifier
-	'__initdata | '__devinitdata | '__cpuinitdata | '__read_mostly | '__initmv 
-    | 	'__initdata_or_module | '__pminitdata | '__cpuinit | '__devinit | '__meminit
+define init_qualifier
+    '__init | 'init__ | 'init | '__init__
+end define
+
+define exit_qualifier
+    '__exit | 'exit__ | 'exit | '__exit__
+end define
+
+define user_qualifier
+    '__user | 'user__ | 'user | '__user__
+end define
+
+define force_qualifier
+    '__force | 'force__ | 'force | '__force__
+end define
+
+define asmlinkage_qualifier
+    'asmlinkage
+end define
+
+define zexport_qualifier
+    'ZEXPORT
 end define
 #endif
-
-define function_specifier
-	[inline_specifier]
-    |	[noreturn_specifier]
-end define
-
-define inline_specifier
-	'inline
-#ifdef GNU
-    |	'__inline | '__inline__ | 'inline__ 
-#endif
-end define
-
-define noreturn_specifier
-	'Noreturn
-#ifdef GNU
-    |	'noreturn | '__noreturn | '__noreturn__ | 'noreturn__ 
-#endif
-end define
-
-define alignment_specifier
-	[alignas_] '( [type_name] ')
-    |	[alignas_] '( [constant_expression] ')
-end define
-
-define alignas_
-	'Alignas
-#ifdef GNU
-    |	'alignas
-#endif
-end define
 
 define simple_type_name
-	[char_specifier]
-    |   [int_specifier]
-    |   [void_specifier]
-    |   [float_specifier]
-    |   [double_specifier]
+	'char
+    |   'int
+    |   'void
+    |   'float
+    |   'double
     |   [type_id]
 end define
 
 define type_id
-    [identifier] [not declarator_extension]
+    [reference_id] [not declarator_extension]
 end define
+
+#ifdef MACROS
+define macro_type_arguments
+    '( [list macro_type_argument] ')
+end define
+
+define macro_type_argument
+    [argument_expression]
+end define
+#endif
 
 define struct_or_union
     'struct | 'union
 end define
 
-define enum_definition
-    [opt declaration_specifiers]
-    'enum 
-#ifdef GNU
-    [opt gnu_attributes]
-#endif
-    [opt identifier] [enumerator_body]
-#ifdef GNU
-    [opt gnu_attributes]
-#endif
-end define
-
-define enumerator_body
-    '{					[IN] 
-    	[opt enumerator_list] [opt ',]	[EX] 
+define enum_specifier
+	'enum [reference_id]
+    |	'enum [opt reference_id] { [list enumerator] [opt ',] 
 #ifdef PREPROCESSOR
-	[repeat preprocessor] 
+	[repeat preprocessor]
 #endif
-    '}
-#ifdef GNU
-    [opt gnu_attributes]
-#endif
-    [opt declarator_opt_init_semi] 
-end define
-
-define enumerator_list
-    [list enumerator+]
+	}
 end define
 
 define enumerator
 #ifdef PREPROCESSOR
-	[repeat preprocessor] 
+    [repeat preprocessor] 
 #endif
-	[enumerator_element]
-end define
-
-define enumerator_element
-    	[NL] [enumerator_name] [enumerator_value]
-    |	[enumerator_name] 
-end define
-
-define enumerator_name
-	[identifier]
-#ifdef LINUX
-	[repeat identifier]
-#endif
-    |	[dot_identifier]	
-#ifdef LINUX
-    | 	[macro_call] [repeat macro_call]
-#endif
-end define
-
-define dot_identifier
-    [SP] '. [identifier]
+    [reference_id] [opt enumerator_value]
 end define
 
 define enumerator_value
     = [constant_expression]
 end define
 
-define enum_specifier
-	'enum 
+#ifdef GNU
+define extension_specifier
+    '__extension__ | '__extension      
 end define
 
-define declarator_opt_init
+define weak_specifier
+    '__weak__ | '__weak
+end define
+
+define declspec_specifier
+    '__declspec '( [decl_specifiers] ')
+end define
+#endif
+
+define init_declarator
     [declarator] 
 #ifdef GNU
-    [repeat gnu_attributes_or_asm]
+    [repeat attributes_or_asm]
 #endif
     [opt initialization] 
 end define
 
 
-% A declarator is the actual declared item, as in "*X" of "static int *X;"
+% A declarator is the actual declared item, as in "*X" of "static int X;"
 
 define declarator
-    [repeat pointer] [direct_declarator] [SPON] [repeat declarator_extension] 
-	[opt macro_call] 	% observed 
+#ifdef GNU
+    [repeat attribute_spec] 
+#endif
+    [repeat ptr_operator] [base_declarator] [SPON] [repeat declarator_extension] 
+#ifdef GNU
+    [repeat attribute_spec] 
+#endif
 end define
 
-define direct_declarator
-	[identifier]
-    |   [SPON] '( [opt declaration_specifiers] [declarator] ')	
+define base_declarator
+	[reference_id]
+    |   [SPON] ( [opt decl_specifiers] [declarator] ) 
 end define
 
 define declarator_extension
@@ -841,85 +623,110 @@ define declarator_extension
 end define
 
 define function_declarator_extension
-    '( [parameter_type_list] ') [maybe_type_qualifier_list]
+    ( [argument_declaration_list] ) [repeat cv_qualifier]
 end define
 
 define array_declarator_extension
-    '[ [opt 'static] [opt type_qualifier_list] [opt 'static] [opt assignment_expression] [opt '*] '] [maybe_type_qualifier_list]
+    '[ [opt constant_expression] ']
 end define
 
-define maybe_type_qualifier_list
-	[empty]
-    |	[type_qualifier_list]
+define ptr_operator
+	[opt nf_qualifier] '* [SPOFF] [repeat ptr_qualifier]
+    |   [opt nf_qualifier] '( '* ') [SPOFF] [repeat ptr_qualifier] 
 end define
 
-define type_qualifier_list
-    [list type_qualifier+]
+define nf_qualifier
+	'near | 'far
+    | 	'NEAR | 'FAR
 end define
 
-define pointer
-	[opt pointer_specifier] '* [SPOFF] [opt pointer_qualifier_list]
-    |   [opt pointer_specifier] '( [repeat pointer+] ') [SPON] [opt pointer_qualifier_list] 
-end define
-
-define pointer_specifier
-  	[near_far_specifier]
+define ptr_qualifier
+	[SPON] [cv_qualifier]
 #ifdef GNU
-    |	[gnuextensionid]
+    |   [SPON] [inline_qualifier]
+    |   [SPON] [restrict_qualifier]
+    |   [SPON] [init_qualifier]
+    |   [SPON] [exit_qualifier]
+    |   [SPON] [user_qualifier]
+    |	[SPON] [zexport_qualifier]
 #endif
 end define
 
-define pointer_qualifier_list
-    [repeat pointer_qualifier+]
+define cv_qualifier
+	'const
+    |   'volatile
+#ifdef GNU
+    |   'CONST
+    |   '__const
+    |   '__const__
+    |   'const__
+    |   '__volatile__
+    |   '__volatile
+    |   'volatile__
+    |   '__iomem
+    |	[initdata]
+    |   'internal_function  % bison
+    |   'yyconst            % postgresql
+    |	'pascal             % macintosh
+#endif
+#ifdef MACROS
+    |   [upper_macro_name]
+#endif
 end define
 
-define pointer_qualifier
-    [SPON] [type_qualifier]
+#ifdef GNU
+define restrict_qualifier
+    '__restrict | 'restrict__ | 'restrict | '__restrict__
 end define
+#endif
 
 % For expressions mentioning types (e.g. casts and sizeof)
 
 define type_name
-    [declaration_specifiers] [repeat abstract_declarator]
+    [type_specifiers] [repeat abstract_declarator]
+end define
+
+% Can't be empty, and no more than one type.
+
+define type_specifiers
+	[repeat type_qualifier] [type_specifier] [repeat type_qualifier]
+    |	[repeat type_qualifier+] 
 end define
 
 % This is a declarator which doesn't introduce a name, but is just for mentioning types.
 
 define abstract_declarator
-	[repeat pointer+] [SPON] 
-    |	[repeat pointer]  [SPON] [repeat direct_abstract_declarator+]
+	[repeat ptr_operator+] [repeat declarator_extension] [SPON]
+    |   [array_declarator_extension]
+    |   ( [repeat abstract_declarator+] ) [repeat declarator_extension]
+#ifdef GNU
+    |   ( [list type_name+] )  
+    |	'static  % bison
+#endif
 end define
 
-define direct_abstract_declarator
-    [declarator_extension]
-end define
 
 % An argument declaration (used only in function headers) is like a regular declaration 
 % except at most one declarator, without an initializer, is allowed.  
 
-define parameter_type_list
-    [list parameter_declaration] [opt comma_dotdotdot]
+define argument_declaration_list
+    [list argument_declaration] [opt comma_dotdotdot]
 end define
 
-define parameter_declaration
-	[declaration_specifiers] [parameter_declarator_list]	% prefer with declarator
-    |	[declaration_specifiers] 				% but optional in C
+define argument_declaration
+	[decl_specifiers] [opt argument_declarator]
 #ifdef GNU
-    |   '( [parameter_type_list] ')
+    |   '( [argument_declaration] ')
 #endif
 end define
 
 define comma_dotdotdot
-    ', [SP] '... [SP]	% Really only allowed last in a non-empty list
+    ', [SP] '... [SP]	% Only allowed last in a non-empty list, never mind.
 end define
 
-define parameter_declarator_list
-    [list parameter_declarator+]
-end define
-
-define parameter_declarator
-	[declarator]          [repeat gnu_attributes_or_asm]
-    |   [abstract_declarator] [repeat gnu_attributes_or_asm]
+define argument_declarator
+	[declarator] [repeat attributes_or_asm]
+    |   [abstract_declarator] [repeat attributes_or_asm]
 end define
 
 
@@ -927,22 +734,36 @@ end define
 
 define initialization
 #ifdef GNU
-	[opt initdata_specifier]
+	[opt initdata]
 #endif
 	= [initializer]
 #ifdef GNU
-    |   [compound_initializer]
-    |	= [see ';]
+    |   ( [constant_expression] )
 #endif
+#ifdef MACROS
+    |   [macro_call]
+#endif
+end define
+
+define initdata
+	'__initdata | '__devinitdata | '__cpuinitdata | '__read_mostly | '__initmv 
+    | 	'__initdata_or_module | '__pminitdata | '__cpuinit | '__devinit
+#ifdef MACROS
+    |	'BDATA 
+    |	'compat_init_data 
+    |	'in2000__INITDATA 
+#endif 
 end define
 
 define initializer
 #ifdef PREPROCESSOR
-	[repeat preprocessor]
+    [repeat preprocessor]
 #endif
-	[initializer_unit] 
 #ifdef GNU
-	[repeat initializer_unit] 
+	[repeat initializer_unit+] 
+    |	[empty]
+#else
+    [initializer_unit] 
 #endif
 end define
 
@@ -950,8 +771,11 @@ define initializer_unit
 	[assignment_expression]
     |	[compound_initializer]
 #ifdef GNU
-    |	[element_label] [opt colon_equals_or_equals] [initializer] [opt ';]
-    |   '[ [constant_expression] [opt dotdotdot] [opt constant_expression] '] [opt '=] [initializer] [opt ';]
+    |	[NL] [element_label] [opt colon_equals_or_equals] [initializer] [opt ';]
+    |   [NL] '[ [constant_expression] [opt dotdotdot] [opt constant_expression] '] [opt '=] [initializer] [opt ';]
+#endif
+#ifdef MACROS
+    |	[macro_call] 
 #endif
 end define
 
@@ -960,41 +784,22 @@ define colon_equals_or_equals
 end define
 
 define compound_initializer
-	'{ '}	% redundant, but avoids newlines in output
+	{ }	% redundant, but avoids newlines in output
     |
-        [opt cast_specifier]
-	'{ [IN] 
-	    [list sub_initializer] [opt ',]
+	{   [IN] 
+	    [list initializer] [opt ',] [opt ';] 	% oberved - JRC 15.10.09 
 #ifdef PREPROCESSOR
 	    [repeat preprocessor_list_initializer]
 #endif
-#ifdef LINUX
-	    [upper_macro_name?]		% EXTRA_PARMS
-#endif
-	[EX] '} 
-#ifdef LINUX
-    |	[macro_call] ';
-#endif
+	    [EX] [NL] 
+	}
 end define
 
-define cast_specifier
-	'& [cast_operator] 
-end define
-
-define sub_initializer
-	[assignment_expression]
-    |	[NL] 
-#ifdef LINUX
-	[opt macro_call] 
-#endif
-	[initializer_unit]
-end define
-
+#ifdef GNU
 define dotdotdot
     [SP] '... [SP]
 end define
 
-#ifdef GNU
 define element_label
     [opt '.] [element_name] [repeat element_name_extension] 
 end define
@@ -1005,7 +810,7 @@ define element_name_extension
 end define
 
 define element_name
-    [identifier] 
+    [id] 
 end define
 #endif
 
@@ -1023,14 +828,14 @@ define statement
 	[repeat preprocessor]
 #endif
 	[repeat label] [unlabeled_statement]
-    |   [repeat label+]					% e.g. at end of switch block
+    |   [label]	% e.g. at end of switch block
 #ifdef PREPROCESSOR
     |   [preprocessor]
 #endif
 end define
 
 define label
-	[EX] [label_name] ': [IN] [NL]
+	[EX] [label_id] ': [IN] [NL]
     |   [EX][SP][SP] 'case [constant_expression] ': [IN] [NL]
     |   [EX][SP][SP] 'default ': [IN] [NL]
 #ifdef GNU
@@ -1038,13 +843,12 @@ define label
 #endif
 end define
 
-define label_name
-    [identifier] 
+define label_id
+    [id] 
 end define
 
 define unlabeled_statement
-	[simple_statement] [semi]
-    |	[structured_statement] 
+	[c_unlabeled_statement]
 #ifdef GNU
     |	[gnu_statement] 
 #endif
@@ -1052,13 +856,23 @@ end define
 
 #ifdef GNU
 define gnu_statement
-    [error_statement]
+	[error_statement]
+    |   [else_statement]
 end define
 
 define error_statement
     'error [opt ':] [repeat id+] [opt '+] [repeat id] [opt semi]
 end define
 #endif
+
+define c_unlabeled_statement
+	[simple_statement] [semi]
+    |	[structured_statement] 
+end define
+
+define simple_statement_opt_semi
+    [not assignment_expression] [simple_statement] [opt semi]
+end define
 
 define structured_statement
 	[if_statement]
@@ -1067,7 +881,9 @@ define structured_statement
     |   [switch_statement]
     |   [do_statement]
     |   [compound_statement]
+#ifdef GNU
     |   [asm_statement]
+#endif
 end define
 
 define simple_statement
@@ -1081,86 +897,72 @@ define null_statement
 end define
 
 define compound_statement
-    '{ [IN] [NL]
+    { [IN] [NL]
 	[compound_statement_body] [EX]
-    '} [opt ';] [NL]
+    } [opt ';] [NL]
 #ifdef PREPROCESSOR
     [repeat preprocessor]
 #endif
 end define
 
 define compound_statement_body
-	[opt block_item_list] 
-end define
-
-define block_item_list
-    [repeat block_item+]
-end define
-
-define block_item
-    [declaration_or_statement]
+    [repeat declaration_or_statement]
 end define
 
 define declaration_or_statement
 	[declaration] 
     |	[statement] 
-    |	[struct_or_union_definition]
-    |	[enum_definition]
-#ifdef GNU
-    |	[function_definition]  
-#endif
 #ifdef PREPROCESSOR
     |	[preprocessor]
 #endif
-#ifdef LINUX
+#ifdef GNU
+    |	[function_definition]  
+#endif
+#ifdef MACROS
     |	[macro_declaration_or_statement]
 #endif
-#ifdef ROBUST
     |	[unknown_declaration_or_statement]
-#endif
 end define
 
 define expression_statement
-    [expression_list]
+    [repeat pre_increment_operator] [assignment_expression] [repeat assign_assignment_expression]
+    [opt comma_expression_statement]
+end define
+
+define assign_assignment_expression
+    [assignment_operator] [assignment_expression]
+end define
+
+define comma_expression_statement
+    ', [expression_statement]
 end define
 
 define if_statement
-	'if '( [condition] 
+    'if ( [expression_list] 
 #ifdef PREPROCESSOR
-	    [repeat preprocessor] 
+	[repeat preprocessor] 
 #endif
-	    ') [sub_statement] 
-	[repeat ELIF_statement]		% observed - JRC
-	[opt else_statement]
-#ifdef LINUX
-    |
-	'if [macro_call]
-	    [sub_statement] 
-	[repeat ELIF_statement]		% observed - JRC
-	[opt else_statement]
+    ) [sub_statement] 
+    [opt else_statement]
+#ifdef GNU
+|  'if [postfix_expression]
+	[sub_statement] 
+    [opt else_statement]
 #endif
-end define
-
-define ELIF_statement
-    	'ELIF '( [condition] ')
-	    [sub_statement]
-    |
-    	'ELIF [macro_call]
-	    [sub_statement]
 end define
 
 define sub_statement
-	[compound_statement]			% avoid { on separate line
-    | 	[IN] [NL] [not '{] [statement] [EX]
-#ifdef LINUX
+	[compound_statement]
+    |	[IN] [NL] [statement] [EX]
+#ifdef MACROS
     |	[IN] [NL] [macro_declaration_or_statement] [EX]
 #endif
 end define
 
 define switch_statement
-	'switch '( [expression_list] ') [sub_statement]
-#ifdef LINUX
-    |   'switch [macro_call] [sub_statement]
+    'switch ( [expression_list] ) [sub_statement]
+#ifdef GNU
+|   'switch [macro_call] [sub_statement]
 #endif
 end define
 
@@ -1172,102 +974,127 @@ define else_statement
 end define
 
 define else_sub_statement
-    % to format else-if correctly
+% to format else-if correctly
 	[if_statement]
     | 	[sub_statement]
 end define
 
 define while_statement
-	'while '( [condition] ') [sub_statement]
+    'while '( [expression_list] ') [sub_statement]
 #ifdef GNU
-	[opt else_statement]
+    [opt else_statement]
 #endif
-#ifdef LINUX
-    |   [whileeachid] '( [expression_list] ') [sub_statement]
-	[opt else_statement]
-    |	'LOOP [sub_statement]		% observed - JRC
-    |	'forever [sub_statement]	% observed - JRC
+#ifdef MACROS
+|   [whileeachid] '( [expression_list] ') [sub_statement]
+    [opt else_statement]
 #endif
 end define
 
 define do_statement
-    'do [sub_statement] [do_while_condition] [semi]
-end define
-
-define do_while_condition 
-	'while '( [condition] ')
-#ifdef LINUX
-    |   'while [macro_call] 
-    |   [whileeachid] '( [expression_list] ') 
+    'do [sub_statement] 'while ( [expression_list] ) [semi] 
+#ifdef MACROS
+|   'do [sub_statement] 'while [macro_call] [semi] 
+|   'do [sub_statement] [whileeachid] ( [expression_list] ) [semi] 
 #endif
 end define
 
 define for_statement
-	'for '( [opt non_null_declaration] [opt expression_list] '; [opt expression_list] [opt semi_opt_expression_list] ') [sub_statement]
-#ifdef LINUX
-    |   [foreachid] '( [expression_list] ') [sub_statement]  
+    'for ( [opt expression_list] '; [opt expression_list] '; [opt expression_list] ) [sub_statement]
+#ifdef GNU
+|   'for ( [decl_specifiers] [list init_declarator+] '; [opt expression_list] '; [opt expression_list] ) [sub_statement]
+|   'for ( [opt expression_list] '; [opt expression_list] ) [sub_statement]  % observed - JRC 15.10.09
 #endif
-end define
-
-define non_null_declaration
-    [opt declaration_specifiers] [opt declarator_opt_init_list] ';
-end define
-
-define semi_opt_expression_list
-    '; [opt expression_list]
+#ifdef MACROS
+|   [foreachid] '( [expression_list] ') [sub_statement]  
+#endif
 end define
 
 define jump_statement
-	[goto_statement]
-    |	[continue_statement]
-    |	[break_statement]
-    |	[return_statement]
-end define
-
-define goto_statement
-    	'goto [label_name] 
+	'goto [label_id] 
+    |   'continue 
+    |   'break 
+    |   'return [opt expression] 
 #ifdef GNU
-    |   'goto [pointer] [expression] 
-#endif
-end define
-
-define continue_statement
-    'continue 
-end define
-
-define break_statement
-    'break 
-end define
-
-define return_statement
-    'return [opt expression_list] 
-#ifdef GNU
-    	[opt gnu_attributes]
+    |   'goto [ptr_operator] [expression] 
+    |   'return [expression] [opt attribute_spec] 
 #endif
 end define
 
 #ifdef GNU
-% Gnu assembler code 
+% Gnu assembler code statements
 define asm_statement
-    [opt identifier_equals] [asm_spec] [opt semi]
-end define
-
-define identifier_equals
-    [identifier] '= 
+    [asm_spec]
 end define
 
 define asm_spec
-    [asm_] [repeat type_qualifier] [opt 'goto] '( [IN] [repeat asm_item] ') [EX] [opt gnu_attributes] 
+    [asm] [repeat cv_qualifier]
+    '( 					[IN]
+	[asm_template] 
+	[opt asm_output_operands] 
+	[opt asm_input_operands] 
+	[opt asm_clobbered_registers] 	[EX]
+    ')
+|
+    [asm] [repeat cv_qualifier] 
+    '{ 				   	[IN] 
+	[repeat asm_instruction_semi] 
+	[asm_instruction] [opt semi]	[EX] 
+    '}
 end define
 
-define asm_item
-	[stringlit] [opt ',] [NL]
-    |	'( [IN] [repeat asm_item] ') [EX]
-    |	[not '(] [not ')] [token_or_key]
+% Raw assembler code
+define asm_instruction_semi
+    [repeat asm_unit+] '; [NL]
 end define
 
-define asm_
-    'asm | '__asm | '__asm__ | 'asm__  | 'asm_safe
+define asm_instruction
+    [repeat asm_unit+] [NL]
+end define
+
+define asm_unit
+    [not ';] [not '}] [token_or_key]
+end define
+
+define token_or_key
+    [token] | [key]
+end define
+
+% Assembler instructions with C operands
+define asm
+    '__asm__ | 'asm | 'asm__ | '__asm
+end define
+
+define asm_template
+    [repeat string_unit_NL+]
+end define
+
+define string_unit_NL
+    [string_unit] [NL]
+end define
+
+define asm_output_operands
+    ': [list asm_operand] [NL]
+end define
+
+define asm_input_operands
+    ': [list asm_operand] [NL]
+end define
+
+define asm_operand
+	[opt bracketed_id] [string] '( [expression] ')
+    |   [pseudo_string] '( [expression] ')
+end define
+
+define bracketed_id 
+    '[ [id] ']
+end define
+
+define asm_clobbered_registers
+    ': [list asm_register] [NL]
+end define
+
+define asm_register
+    [string] | [pseudo_string]
 end define
 #endif
 
@@ -1276,23 +1103,6 @@ end define
 
 define expression_list
     [list expression+]
-#ifdef LINUX
-    [opt comma_empty_brackets]
-#endif
-end define
-
-#ifdef LINUX
-define comma_empty_brackets
-    ', [opt empty_brackets]
-end define
-
-define empty_brackets
-    '{ '} [opt ',]
-end define
-#endif
-
-define condition
-    [expression_list]
 end define
 
 define expression
@@ -1304,15 +1114,16 @@ define constant_expression
 end define
 
 define assignment_expression
-    [conditional_expression] [assign_assignment_expression?]
+	[conditional_expression] 
+    |   [unary_expression_assign] [assignment_expression]
 end define
 
-define assign_assignment_expression
-    [assignment_operator] [assignment_expression]
+define unary_expression_assign
+    [unary_expression] [assignment_operator]
 end define
 
 define assignment_operator
-    '= | '*= | '/= | '%= | '+= | '-= | '<<= | '>>= | '&= | '^= | '|=
+    = | *= | /= | '%= | += | -= | >>= | <<= | &= | ^= | '|=
 end define
 
 define conditional_expression
@@ -1332,9 +1143,9 @@ define OR_logical_AND_expression
 end define
 
 define logical_OR_operator
-	'||
+    '||
 #ifdef GNU
-    |  'or | 'OR 
+|   'OR | 'or
 #endif
 end define
 
@@ -1350,9 +1161,9 @@ define AND_inclusive_OR_expression
 end define
 
 define logical_AND_operator
-	'&&
+    '&&
 #ifdef GNU
-    |  'and | 'AND | 'ANDP
+|   'AND | 'and | 'ANDP
 #endif
 end define
 
@@ -1365,9 +1176,9 @@ define OR_exclusive_OR_expression
 end define
 
 define bit_OR_operator
-	'|
+    '|
 #ifdef GNU
-    |  'bit_or | 'BIT_OR 
+|   'BIT_OR | 'bit_or
 #endif
 end define
 
@@ -1380,9 +1191,9 @@ define exclusive_OR_AND_expression
 end define
 
 define bit_XOR_operator
-	'^
+    '^
 #ifdef GNU
-    |  'bit_xor | 'BIT_XOR 
+|   'BIT_XOR | 'bit_xor
 #endif
 end define
 
@@ -1395,9 +1206,9 @@ define AND_equality_expression
 end define
 
 define bit_AND_operator
-	'&
+    '&
 #ifdef GNU
-    |  'bit_and | 'BIT_AND 
+|   'BIT_AND | 'bit_and
 #endif
 end define
 
@@ -1410,8 +1221,7 @@ define equality_relational_expression
 end define
 
 define equality_operator
-    	'== | '!= 
-    | 	'equals		% Mozilla FF
+    '== | '!=
 end define
 
 define relational_expression
@@ -1459,9 +1269,9 @@ define multipy_divide_cast_expression
 end define
 
 define multiplicative_operator
-	'* | '/ | '%
+    '* | '/ | '%
 #ifdef GNU
-    |  'div | 'DIV | 'mod | 'MOD 
+|   'DIV | 'MOD
 #endif
 end define
 
@@ -1470,15 +1280,17 @@ define cast_expression
 end define
 
 define cast_operator
-    	'( [type_name] ')
-    |	[upper_macro_name] [see postfix_expression]	% observed - JRC
+    '( [type_name] ')
+#ifdef MACROS
+%% |   [upper_macro_name]	% BIG trouble, can't allow - JRC 29.4.11
+#endif
 end define
 
 define unary_expression
-    [repeat pre_increment_decrement_operator] [sub_unary_expression] [SPON] 
+    [repeat pre_increment_operator] [sub_unary_expression] [SPON] 
 end define
 
-define pre_increment_decrement_operator
+define pre_increment_operator
     '++ [SPOFF] | '-- [SPOFF] 
 end define
 
@@ -1486,121 +1298,90 @@ define sub_unary_expression
 	[postfix_expression]
     |   [unary_operator] [SPOFF] [cast_expression] [SPON] 
     |   [SPON] [sizeof_expression]
+#ifdef GNU
     |   [SPON] [alignof_expression]
+#endif
 end define
 
 define unary_operator
-	'& | '* | '+ | '- | '~ | '!
+    '& | '* | '+ | '- | '~ | '!
 #ifdef GNU
-    |   '&& | 'not | 'NOT 
+|   '&& | 'NOT | 'not 
 #endif
 end define
 
 define sizeof_expression
-	'sizeof '( [type_name] ')
+	'sizeof ( [type_name] )
     |	'sizeof [unary_expression]
 end define
 
+#ifdef GNU
 define alignof_expression
     [alignof_specifier] '( [expression_or_type_name] ')
 end define
 
 define alignof_specifier
-	'_Alignof 
+    '__alignof__ | '__alignof
+end define
+#endif
+
+define postfix_expression
+    [primary] [SPOFF] [repeat postfix_extension] [SPON]
+end define
+
+define primary
+	[reference_id]
+    |   [constant]
+    |   [string]
+    |   '( [SPON] [expression_list] 
 #ifdef GNU
-    | 	'__alignof | '__alignof__ | 'alignof__
+	    [opt ',] 
+#endif
+	')
+#ifdef GNU
+    |   '{ [SPON] [expression_list] [opt ',] '}
+    |   [SPON] [extension_specifier] '( [expression_list] ')              
+    |   [SPON] [constructor_expression]                              
+    |   [SPON] [asm_spec]
 #endif
 end define
 
-define postfix_expression
-	[primary_expression] [SPOFF] [repeat postfix_extension] [SPON]
+define reference_id
+	[id] 
+#ifdef MACROS
+    | 	[foreachid] | [whileeachid] 
+#endif
 end define
 
-define primary_expression
-	[identifier]
-    |   [constant]
-    |   [string_literal]
-    |	[parenthesized_expression]
-    |	[constructor_expression] 
-    |   [generic_selection]
-    |	[macro_call]
+#ifdef GNU
+define compound_statement_expression
+    '( [compound_statement] ') 
 end define
 
 define constructor_expression
-    	'( [SPON] [type_name] ') [compound_initializer]
+	'( [constructor_type] ') { [list initializer] [opt ',] }
+    |   '( [constructor_expression] ')
 end define
 
-define identifier
-	[id] 
-#ifdef LINUX
-    | 	[foreachid] | [whileeachid] | [gnuextensionid]
+define constructor_type
+	[struct_or_union_specifier]
+    |   [type_specifiers] [repeat ptr_operator] [repeat array_declarator_extension]
+end define
 #endif
-end define
-
-define parenthesized_expression
-    	'( [SPON] [expression_list] [opt ',] ')
-#ifdef GNU
-    |	'( [SPON] [compound_statement] ')
-#endif
-end define
-
-define generic_selection
-    '_Generic '( [assignment_expression] ', [generic_assoc_list] ')
-end define
-
-define generic_assoc_list
-    [list generic_association+]
-end define
-
-define generic_association
-	[type_name] ': [assignment_expression]
-    |	'default ': [assignment_expression]
-end define
 
 define postfix_extension
-	[subscript_extension]
-    |	[arguments_extension]
-    |	[field_access_extension]
-    |	[dereference_extension]
-    |	[post_increment_decrement_operator]
-end define
-
-define subscript_extension
-    '[ [SPON] [opt assignment_expression] [SPOFF] ']
-end define
-
-define field_access_extension
-    '. [identifier]
-end define
-
-define dereference_extension
-    '-> [identifier] 
-end define
-
-define post_increment_decrement_operator
-    '++ | '--
-end define
-
-define arguments_extension
-    [SP] '( [SPON] [opt argument_expression_list] 
-#ifdef LINUX
-	[opt variadic_declaration_spec]
-#endif
+	'[ [SPON] [assignment_expression] [SPOFF] ']
+    |   [SP] '( [SPON] [list argument_expression] 
 #ifdef GNU
-	[opt dotdot]
+	    [opt dotdot]
 #endif
-    [SPOFF] ')
+	[SPOFF] ')
+    |   '. [id]
+    |   '-> [id] 
+	[opt macro_call]    % observed, Linux
+    |   '++
+|   '--
 end define
-
-define argument_expression_list
-    [list argument_expression+]
-end define
-
-#ifdef LINUX
-define variadic_declaration_spec
-    [macro_name]
-end define
-#endif
 
 #ifdef GNU
 define dotdot
@@ -1610,21 +1391,32 @@ end define
 
 define argument_expression
 #ifdef PREPROCESSOR
-	[repeat preprocessor]
+    [repeat preprocessor]
 #endif
-	[assignment_expression]
+#ifdef GNU
+    [opt id]
+#endif
+    [assignment_expression]
+#ifdef GNU
+    [opt id]
+    [opt colon_number]
+#endif
 #ifdef PREPROCESSOR
-	[repeat preprocessor]
+    [repeat preprocessor]
 #endif
-#ifdef LINUX
-    |   [equality_operator] | [relational_operator]
-    |	[upper_macro_name] [repeat upper_macro_name]
+|   [type_name]
+#ifdef GNU
+|   [structured_statement]
+|   [equality_operator] | [relational_operator]
+|   [assignment_operator] [assignment_expression] % Linux
+|   'do  | 'extern | 'continue 	% Linux
+|   [empty]
 #endif
 end define
 
 #ifdef GNU
-define structured_statement_expression
-    [structured_statement]
+define colon_number
+    ': [number]
 end define
 #endif
 
@@ -1632,39 +1424,41 @@ end define
 % ===== C Constants =====
 
 define constant
-	[integer_constant]
-    |	[floating_constant]
-%   |	[enumeration_constant]		% already captured by [identifier] in [primary]
-    |	[character_constant]
-end define
-
-define integer_constant
-	[number] 
-#ifdef LINUX
-	[opt number_units]
+	[number]
+    |   [float]
+    |   [hex]
+    |   [long]
+    |   [SP] [dotfloat]		    % TXL doesn't defaultly space before .
+    |   [charlit]                   % "single" character constant
+    |   [string]
+#ifdef GNU
+    |   [gnu_long_int]
+    |   [gnu_long_int_string]
+    |   [hexfloat]
 #endif
-    |	[longnumber]
-    |	[hexnumber]
 end define
 
-#ifdef LINUX
-define number_units
-    'KB | 'MB | 'GB
+#ifdef GNU
+define gnu_long_int
+	[gnu_long_int_string]
+    |   [gnu_long_int_charlit]
+end define
+
+define gnu_long_int_string
+    'L [SPOFF] [string] [SPON]
+end define
+
+define gnu_long_int_charlit
+    'L [SPOFF] [charlit] [SPON]
+end define
+
+define hexfloat
+    [extension_specifier] [hex]
 end define
 #endif
 
-define floating_constant
-	[floatnumber]
-    |   [SP] [dotfloatnumber]		% TXL doesn't defaultly space before .
-    |   [hexfloatnumber]
-end define
-
-define character_constant
-    [charlit]
-end define
-
-define string_literal
-	[stringlit] [repeat string_unit]  % Includes implicit concatenation
+define string
+	[stringlit] [repeat string_unit]		% Includes implicit concatenation
 #ifdef GNU
     |	[pseudo_string] [stringlit] [repeat string_unit] 
 #endif
@@ -1682,108 +1476,61 @@ define string_unit
 end define
 
 define pseudo_string
-    [pseudo_string_name] [opt pseudo_string_arguments]
+    [ps_name] [opt ps_arguments]
 end define
 
-define pseudo_string_name
-    [identifier] 
+define ps_name
+    [id] 
 end define
 
-define pseudo_string_arguments
-    '( [pseudo_string_argument_list] ')
+define ps_arguments
+    '( [ps_argument_list] ')
 end define
 
-define pseudo_string_argument_list
-    [list pseudo_string_argument]
+define ps_argument_list
+    [list ps_argument]
 end define
 
-define pseudo_string_argument
+define ps_argument
 	[constant_expression]
     | 	[register_spec]
 end define
 
 define register_spec
-	'% [SPOFF] [opt '%] [identifier] [SPON]
+	'% [SPOFF] [opt '%] [id] [SPON]
     |	'% [SPOFF] [opt '%] [integernumber] [opt id] [SPON]
 end define
 
 
-% ===== GNU Extensions =====
-
-#ifdef GNU
-define gnu_attributes
-    [repeat gnu_attribute_spec+]
-end define
-
-define gnu_attributes_or_asm
-	[gnu_attribute_spec]
-    |   [asm_spec]
-end define
-
-define gnu_attribute_spec
-	'attribute_hidden 
-    | 	[SP] [gnuextensionid] [opt gnu_attribute_arguments]
-    |	[upper_macro_name] '( [stringlit] ') [not upper_macro_name]
-end define
-
-define gnu_attribute_arguments
-    '( [repeat gnu_attribute_argument+] ')
-end define
-
-define gnu_attribute_argument
-	'( [repeat gnu_attribute_argument] ')
-    |   [not '(] [not ')] [token_or_key]
-end define
-
-define token_or_key
-    [token] | [key]
-end define
-#end if
-
-
 % ===== Macro Extensions =====
 
-#ifdef LINUX
+#ifdef MACROS
 % From Linux code
 define machinestart_declaration
-    [machine_start_] '( [expression_list] ') 	[IN]
-	[list sub_initializer] [opt ',]		[EX] 
+    'MACHINE_START '( [expression_list] ') 	[IN]
+	[list initializer] [opt ',]		[EX] [NL]
     'MACHINE_END [opt ';]			[NL]
 end define
 
-define machine_start_
-    'MACHINE_START | 'DT_MACHINE_START
+define device_attr
+    'DEVICE_ATTR | 'SYSDEV_ATTR | 'DEFINE_TIMER | 'DECLARE_TASKLET
 end define
 
 define macro_declaration_or_statement
-	[opt 'else]	% observed httpd
-	[macro_call] [opt macro_extension] [opt ';] [NL]
-    |	[macro_block] [opt ';] [NL]
-    |   [macro_name] [opt ';] [see statement_declaration_or_end] [NL] 
+	[opt reference_id_equals] [macro_call] [opt equals_initializer] [opt ';] [NL]
+    |   [upper_macro_name] [opt ';] [see statement_declaration_or_end] [NL] 
 end define
 
-define macro_block
-    [macro_name] [compound_statement] [opt macro_call] [opt ';] [NL] 	% try {   } catch(err);	
+define reference_id_equals
+    [reference_id] '=
 end define
 
-define macro_extension
-    	[macro_initializer]
-    |	[enumerator_body]
-    |	[compound_statement] 
-    |	[repeat NL_stringlit+] 		% observed Linux - JRC
-end define
-
-define macro_initializer
-	'= [initializer]
-    |	[see '{] [compound_initializer]
-end define
-
-define NL_stringlit
-    [NL] [stringlit]
+define statement_declaration_or_end
+    [declaration_or_statement] | '} 
 end define
 
 define macro_call
-    	[macro_name] '( [macro_arguments] ') 
+    [macro_name] '( [macro_arguments] ') 
 end define
 
 define macro_arguments
@@ -1792,20 +1539,21 @@ end define
 
 define macro_argument
 	'( [macro_arguments] ')
-    |	'{ [macro_arguments] '}
-    |   [not '(] [not ')] [not '{] [not '}] [token_or_key]
+    |   [not '(] [not ')] [token]
+    |   [key]
+end define
+
+define equals_initializer
+	'= [initializer]
+    |   [see '{] [initializer]
 end define
 
 define macro_name
-    	[identifier] 
+    [id] 
 end define
 
 define upper_macro_name
-    [upperid] | [upperlowerid] 
-end define
-
-define statement_declaration_or_end
-    [statement] | [declaration] | '} | [empty]
+    [upperlowerid] 
 end define
 #endif
 
@@ -1813,17 +1561,14 @@ end define
 % ===== Robustness Extensions =====
 
 define unknown_declaration_or_statement
-    [repeat unknown_item+] [semi_or_end_scope]
-end define
-
-define semi_or_end_scope
-	[semi]
-    |	[see '}] [NL]
+	[repeat unknown_item+] '; [NL]
+    |	[repeat unknown_item+] [see '}] [NL]
 end define
 
 define unknown_item
 	'{ [repeat unknown_item] '}
-    |	[not ';] [not '{] [not '}] [token_or_key]
+    |	[not ';] [not '}] [token]
+    |   [key]
 end define
 
 % ===== END =====

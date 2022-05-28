@@ -1,13 +1,10 @@
-% NiCad extract functions, Python
+% Example using TXL 10.5a source coordinate extensions to extract
+% a table of all method definitions with source coordinates
+
 % Jim Cordy, January 2008
 
-% Revised Oct 2020 - new source file name protocol - JRC
-% Revised Aug 2012 - disallow ouput forms in input parse - JRC
 % Revised July 2011 - ignore BOM headers in source
 % Revised 30.04.08 - unmark embedded blocks - JRC
-
-% NiCad tag grammar
-include "nicad.grm"
 
 % Using Python grammar
 include "python.grm"
@@ -18,23 +15,32 @@ include "bom.grm"
 % Redefinitions to collect source coordinates for block definitions as parsed input,
 % and to allow for XML markup of block definitions as output
 
-redefine block
+redefine suite
+	[block]
+    |   [simple_stmt] [endofline]
+end redefine
+
+define block
 	% input form
-        [srclinenumber]				% Keep track of starting file and line number
+        [srcfilename] [srclinenumber]		% Keep track of starting file and line number
         [indent] [endofline]
-	    [opt docstring]
-            [repeat statement_or_newline+]
-	    [srclinenumber] 			% Keep track of ending file and line number
+	    [opt doccomment]
+            [repeat stmt_or_newline+]
+	    [srcfilename] [srclinenumber] 	% Keep track of ending file and line number
         [dedent]
     |
 	% output form
-	[not token]				% disallow output form in input parse
 	[opt xml_source_coordinate]
         [indent] [endofline]
-            [repeat statement_or_newline+]
+            [repeat stmt_or_newline+]
         [dedent]
 	[opt end_xml_source_coordinate]
-end redefine
+end define
+
+define doccomment
+	[longstringlit] [endofline]
+    | 	[longcharlit] [endofline]
+end define
 
 redefine indent
 	[NL] 'INDENT [IN]
@@ -49,14 +55,17 @@ redefine dedent
 	[EX] 'DEDENT [NL]
 end redefine
 
+define xml_source_coordinate
+    '< [SPOFF] 'source [SP] 'file=[stringlit] [SP] 'startline=[stringlit] [SP] 'endline=[stringlit] '> [SPON] [NL]
+end define
+
+define end_xml_source_coordinate
+    '< [SPOFF] '/ 'source '> [SPON] [NL]
+end define
+
 redefine program
 	...
     | 	[repeat block]
-end redefine
-
-% Specialize for Python
-redefine end_xml_source_coordinate
-     '</source> [NL]
 end redefine
 
 
@@ -73,19 +82,18 @@ function main
 end function
 
 rule convertBlockDefinitions
-    import TXLargs [repeat stringlit]
-	FileNameString [stringlit]
-
     % Find each block definition and match its input source coordinates
     replace [block]
-	LineNumber [srclinenumber]
+	FileName [srcfilename] LineNumber [srclinenumber]
         Indent [indent] EOL [endofline] 
-	    DocString [opt docstring]
-            BlockBody [repeat statement_or_newline+] 
-	    EndLineNumber [srclinenumber]
+	    DocComment [opt doccomment]
+            BlockBody [repeat stmt_or_newline+] 
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber]
 	Dedent [dedent] 
 
-    % Convert line numbers to strings for XML
+    % Convert file name and line numbers to strings for XML
+    construct FileNameString [stringlit]
+	_ [quote FileName] 
     construct LineNumberString [stringlit]
 	_ [quote LineNumber] 
     construct LineNumberPlus1 [number]
@@ -102,26 +110,24 @@ rule convertBlockDefinitions
 	'INDENT
 
     % Output is XML form with attributes indicating input source coordinates
-    construct XmlHeader [xml_source_coordinate]
-	'<source file=FileNameString startline=LineNumberPlus1String endline=EndLineNumberMinus1String>
     by
-	XmlHeader
+	<source file=FileNameString startline=LineNumberPlus1String endline=EndLineNumberMinus1String>
 	    FirstIndent EOL 
 	        BlockBody [unmarkEmbeddedBlockDefinitions] 
 			  [reduceEndOfLines] 
 		   	  [reduceEndOfLines2]
 			  [reduceEmptyStmts]
 	    Dedent 
-	'</source>
+	</source>
 end rule
 
 rule unmarkEmbeddedBlockDefinitions
     replace [block]
-	LineNumber [srclinenumber]
+	FileName [srcfilename] LineNumber [srclinenumber]
         Indent [indent] EOL [endofline] 
-	    DocString [opt docstring]
-            BlockBody [repeat statement_or_newline+] 
-	    EndLineNumber [srclinenumber]
+	    DocComment [opt doccomment]
+            BlockBody [repeat stmt_or_newline+] 
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber]
 	Dedent [dedent] 
     by
         Indent EOL 
@@ -145,24 +151,24 @@ rule reduceEndOfLines2
 end rule
 
 rule reduceEmptyStmts
-    replace [repeat statement_or_newline]
+    replace [repeat stmt_or_newline]
 	EOL [endofline]
-	Stmts [repeat statement_or_newline]
+	Stmts [repeat stmt_or_newline]
     by
 	Stmts
 end rule
 
 rule removeEmptyBlocks
     replace [repeat block]
-	LineNumber [srclinenumber]
+	FileName [srcfilename] LineNumber [srclinenumber]
         Indent [indent] EOL [endofline] 
-	    DocString [opt docstring]
-            BlockBody [repeat statement_or_newline+] 
-	    EndLineNumber [srclinenumber]
+	    DocComment [opt doccomment]
+            BlockBody [repeat stmt_or_newline+] 
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber]
 	Dedent [dedent] 
         More [repeat block]
-    deconstruct not * [statement] BlockBody
-        Stmt [statement]
+    deconstruct not * [stmt] BlockBody
+        Stmt [stmt]
     by
         More
 end rule

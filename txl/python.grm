@@ -1,6 +1,5 @@
 % TXL Python grammar
 % Mykhaylo Sorochan and Jim Cordy, November 2008
-% Version 1.6, July 2020
 
 % Copyright 2008 Mykhaylo Sorochan and James R. Cordy, 
 % after the standard Python 2.5 reference grammar, 
@@ -28,31 +27,14 @@
 
 % Modification Log:
 
-% v1.7, Jim Cordy, July 2020.
-%    Added Python 3.8 type hints and format strings
-
-% v1.6, Jim Cordy, July 2020.
-%    Updated to Python 3.8 syntax, adding async, -> to [funcdef], := to [condition]
-%    Added explicit handling of [docstring]s on programs, functions and classes
-
-% v1.5, Jim Cordy, June 2015.
-%    Fixed bug with missing comma in [startest]
-%    Modifed [statement_or_newline] to avoid deep long backtracks
-%    Added Python 3 syntax for [print_statement] 
-%    Fixed yield statement to allow no value
-%    Added explicit octal tokens (e.g., 0o600)
-%
-% v1.4, Jim Cordy, March 2012.
-%    Refactored to expose [condition] for if/while conditions, [expression], [block]
-%
 % v1.3, Jim Cordy, 13 November 2008.
 %    Validated against a library of 1,500 random Python programs including the
 %    entire Python demo set.
 %
 % v1.2, Jim Cordy and Mykhaylo Sorochan, 12 November 2008.
 %    Fixed the [literal] definition and all token patterns to correspond to the Python 2.5 standard.
-%    Corrected [return_statement] and [comp_op].
-%    Changed to standard INDENT / DEDENT tokens rather than C-style brackets to avoid confusion
+%    Corrected [return_stmt] and [comp_op].
+%    Changed to standard INDENT / DEDENT tokens raher than C-style brackets to avoid confusion
 %    with Python { } compound structures.
 %
 % v1.1, Jim Cordy, November 2008.
@@ -86,7 +68,7 @@ tokens
 
     % Python number forms - decimal integers and floating point forms are already captured by [number]
     hexinteger   "0[Xx][\dABCDEFabcdef]+" 
-    octinteger   "0o?[01234567]+" 
+    octinteger   "0[01234567]+" 
     pointfloat   "\d*.\d+([Ee][+-]?\d+)?"		% other forms covered by [floatnumber]
                  | "\d+.\d*([Ee][+-]?\d+)?"
 end tokens 
@@ -107,7 +89,6 @@ end keys
 % Compound operators
 compounds 
     == += -= *= /= '%= &= |=  ^= <<= >>= **= //= ** >> 
-    -> :=	% python 3.8 - JRC 11jul20
 end compounds 
 
 % Python comments are # to end-of-line
@@ -122,13 +103,12 @@ define program
 end define 
 
 define file_input 
-    [docstring ?]
-    [repeat statement_or_newline] 
+    [repeat stmt_or_newline] 
 end define 
 
-define statement_or_newline
-     	[endofline+]	% avoid deep long backtracks - JRC 30jun15
-    |	[statement] 
+define stmt_or_newline
+	[stmt] 
+    | 	[endofline]
 end define
 
 define decorator 
@@ -150,22 +130,8 @@ define decorated
 end define 
 
 define funcdef 
-    [funcdef_header] ': [suite] 
+    'def [id] [parameters] ': [suite] 
 end define 
-
-define docstring
-    [endofline*] [longstringlit] [endofline+]
-end define
-
-define funcdef_header
-    ['async ?]			% python 3.8 - JRC 11jul20
-    'def [id] [parameters] 
-	[arrow_expression ?] 	% python 3.8 - JRC 11jul20
-end define
-
-define arrow_expression
-    '-> [expression]
-end define
 
 define parameters 
     [SPOFF] '( [SPON] [opt varargslist] [repeat endofline] ') 
@@ -191,46 +157,41 @@ define is_test
 end define 
 
 define fpdef 
-        [id] [opt type_hint] [opt endofline] 
+        [id] [opt endofline] 
     |   [SPOFF] '( [SPON] [fplist] [repeat endofline] ') [opt endofline]
 end define 
-
-define type_hint
-    ': [test]
-end define
 
 define fplist 
     [list fpdef+] [opt ',] 
 end define 
 
-define statement 
-    	[simple_statement] [endofline] 
-    |   [compound_statement] 
+define stmt 
+        [simple_stmt] [endofline] 
+    |   [compound_stmt] 
 end define 
 
-define simple_statement 
-    	[small_statement] [repeat semicolon_small_statement] [opt ';] 
+define simple_stmt 
+	[small_stmt] [repeat semicolon_small_stmt] [opt ';] 
     |	[comment]
 end define 
 
-define semicolon_small_statement 
-    '; [small_statement] 
+define semicolon_small_stmt 
+    '; [small_stmt] 
 end define 
 
-define small_statement 
-    	[expr_statement] 
-    |   [print_statement]  
-    |   [del_statement] 
-    |   [pass_statement] 
-    |   [flow_statement] 
-    |   [import_statement] 
-    |   [global_statement] 
-    |   [nonlocal_statement] 	% python 3.8 - JRC 11jul20
-    |   [exec_statement] 
-    |   [assert_statement] 
+define small_stmt 
+        [expr_stmt] 
+    |   [print_stmt]  
+    |   [del_stmt] 
+    |   [pass_stmt] 
+    |   [flow_stmt] 
+    |   [import_stmt] 
+    |   [global_stmt] 
+    |   [exec_stmt] 
+    |   [assert_stmt] 
 end define 
 
-define expr_statement 
+define expr_stmt 
         [testlist] [repeat is_expr] 
     |   [testlist] [augassign] [assign_value] 
 end define
@@ -250,44 +211,43 @@ define assign_value
 end define 
 
 % For normal assignments, additional restrictions enforced by the interpreter 
-define print_statement 
-        'print [opt '>>] [list test] [opt ',] 	
-    |	'print [SPOFF] '( [SPON] [IN] [arglist] [repeat endofline] ') [EX]  % Python 3 - JRC 30jun15
+define print_stmt 
+        'print [opt '>>] [list test] [opt ',] 
 end define 
 
-define del_statement 
+define del_stmt 
     'del [exprlist] 
 end define 
 
-define pass_statement 
+define pass_stmt 
     'pass 
 end define 
 
-define flow_statement 
-        [break_statement] 
-    |   [continue_statement] 
-    |   [return_statement] 
-    |   [raise_statement] 
-    |   [yield_statement] 
+define flow_stmt 
+        [break_stmt] 
+    |   [continue_stmt] 
+    |   [return_stmt] 
+    |   [raise_stmt] 
+    |   [yield_stmt] 
 end define 
 
-define break_statement 
+define break_stmt 
     'break 
 end define 
 
-define continue_statement 
+define continue_stmt 
     'continue 
 end define 
 
-define return_statement 
+define return_stmt 
     'return [opt testlist] 
 end define 
 
-define yield_statement 
+define yield_stmt 
     [yield_expr] 
 end define 
 
-define raise_statement 
+define raise_stmt 
     'raise [opt test_list]
 end define
 
@@ -299,7 +259,7 @@ define comma_test
     [opt endofline] ', [test] 
 end define 
 
-define import_statement 
+define import_stmt 
         [import_name] 
     |   [import_from] 
 end define 
@@ -350,46 +310,42 @@ define dot_dotted_name
     [repeat endofline] '. [repeat endofline] [dotted_name] 
 end define 
 
-define global_statement 
+define global_stmt 
     'global [list id+] 
 end define 
 
-define nonlocal_statement 
-    'nonlocal [list id+] 
-end define 
-
-define exec_statement 
-    	'exec [expression] [opt in_test] [opt comma_test]
+define exec_stmt 
+    'exec [expr] [opt in_test] [opt comma_test]
 end define
 
 define in_test
     'in [test]
 end define
 
-define assert_statement 
+define assert_stmt 
     'assert [test] [opt comma_test] 
 end define 
 
-define compound_statement 
-        [if_statement] 
-    |   [while_statement] 
-    |   [for_statement] 
-    |   [try_statement] 
-    |   [with_statement] 
+define compound_stmt 
+        [if_stmt] 
+    |   [while_stmt] 
+    |   [for_stmt] 
+    |   [try_stmt] 
+    |   [with_stmt] 
     |   [funcdef] 
     |   [classdef] 
     |   [decorated] 
 end define 
 
-define if_statement 
-    'if [condition] ': 
+define if_stmt 
+    'if [test] ': 
         [suite] 
     [repeat elif_clause] 
     [opt else_clause] 
 end define 
 
 define elif_clause 
-    'elif [condition] ': 
+    'elif [test] ': 
         [suite] 
 end define 
 
@@ -398,20 +354,19 @@ define else_clause
         [suite] 
 end define 
 
-define while_statement 
-    'while [condition] ': 
+define while_stmt 
+    'while [test] ': 
         [suite] 
     [opt else_clause] 
 end define 
 
-define for_statement 
-    ['async ?] 				% python 3.8 - JRC 11jul20
+define for_stmt 
     'for [exprlist] 'in [testlist] ': 
         [suite] 
     [opt else_clause] 
 end define 
 
-define try_statement 
+define try_stmt 
     'try ': 
     	[suite] 
     [repeat except_clause_suite] 
@@ -429,14 +384,13 @@ define except_clause_suite
         [suite] 
 end define 
 
-define with_statement 
-    ['async ?] 				% python 3.8 - JRC 11jul20
+define with_stmt 
     'with [test] [opt with_var] ': 
         [suite] 
 end define 
 
 define with_var 
-    'as [expression] 
+    'as [expr] 
 end define 
 
 % NB compile.c makes sure that the default except clause is last 
@@ -454,16 +408,11 @@ define as_or_comma_test
 end define 
 
 define suite 
-	[block]
-    |   [simple_statement] [endofline]
+        [indent] [endofline] 
+            [repeat stmt_or_newline+] 
+	[dedent] 
+    |   [simple_stmt] [endofline]
 end define 
-
-define block
-    [indent] [endofline] 
-	[docstring ?]
-        [repeat statement_or_newline*] 
-    [dedent] 
-end define
 
 % Every end of line may have an optional trailing comment
 define endofline
@@ -505,22 +454,13 @@ define old_lambdef
         [old_test] 
 end define 
 
-define condition
-    [test] 
-    [colon_equals_test ?]		% python 3.8 - JRC 11jul20
-end define
-
-define colon_equals_test
-    ':= [test]
-end define
-
 define test 
         [repeat endofline] [or_test] [opt if_test] [opt endofline]
     |   [repeat endofline] [lambdef] [opt endofline]
 end define 
 
 define if_test
-    [repeat endofline] 'if [or_test] [opt endofline] 'else [test] 
+    [repeat endofline] 'if [or_test] 'else [test] 
 end define
 
 define or_test 
@@ -544,7 +484,7 @@ define not_test
 end define 
 
 define comparison 
-    [expression] [opt comp_op_comparison]
+    [expr] [opt comp_op_comparison]
 end define
 
 define comp_op_comparison
@@ -555,12 +495,12 @@ define comp_op
     '< | '> | '== | '>= | '<= | '<> | '!= | 'in | 'not 'in | 'is | 'is 'not
 end define 
 
-define expression 
+define expr 
     [xor_expr] [opt orop_expr]
 end define
 
 define orop_expr
-    [repeat endofline] '| [repeat endofline] [expression] 
+    [repeat endofline] '| [repeat endofline] [expr] 
 end define 
 
 define xor_expr 
@@ -677,7 +617,7 @@ define sliceop
 end define 
 
 define exprlist 
-    [list expression+] [repeat endofline] [opt ',] 
+    [list expr+] [repeat endofline] [opt ',] 
 end define 
 
 define testlist 
@@ -705,8 +645,8 @@ define arglist
 end define
 
 define star_test
-	[repeat endofline] '* [test] [opt ',]	% added comma - JRC 30jun15
-    |	[repeat endofline] '** [test] [opt ',]
+	[repeat endofline] '* [test]
+    |	[repeat endofline] '** [test]
 end define
 
 define comma_opt_star_test
@@ -758,7 +698,7 @@ define encoding_decl
 end define 
 
 define yield_expr 
-    'yield [opt testlist] 
+    'yield [testlist] 
 end define 
 
 % Python literals
@@ -779,8 +719,7 @@ end define
 
 define stringprefix 
     	'r |  'u |  'ur |  'R |  'U |  'UR |  'Ur |  'uR 
-    |	'b |  'br
-    |	'f
+    |	'b
 end define 
 
 define string

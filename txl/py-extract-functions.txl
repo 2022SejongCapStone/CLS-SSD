@@ -1,12 +1,8 @@
-% NiCad extract function defintions, Python 
+% Extract function defintions from Python code
+
 % Jim Cordy, January 2010
 
-% Revised Oct 2020 - new source file name protocol - JRC
-% Revised Aug 2012 - disallow ouput forms in input parse - JRC
 % Revised July 2011 - ignore BOM headers in source
-
-% NiCad tag grammar
-include "nicad.grm"
 
 % Using Python grammar
 include "python.grm"
@@ -23,32 +19,36 @@ redefine funcdef
 end redefine
 
 define simple_funcdef
-	[funcdef_header] ': [simple_statement] [endofline] 
+    	'def [id] [parameters] ': [simple_stmt] [endofline] 
 end define
 
 define block_funcdef
 	% input form
-	[srclinenumber] 			% Keep track of starting file and line number
-    	[funcdef_header] ':
+	[srcfilename] [srclinenumber] 		% Keep track of starting file and line number
+    	'def [id] [parameters] ': 
         [indent] [endofline] 
-	    [opt docstring] 			% Remove doc comments from potential clone output
-            [repeat fstatement+] 
-	    [srclinenumber]
+	    [opt doccomment] 			% Remove doc comments from potential clone output
+            [repeat fstmt+] 
+	    [srcfilename] [srclinenumber]
 	    [repeat newline]
 	[dedent] 
     |
 	% output form
-	[not token]				% disallow output form in input parse
 	[opt xml_source_coordinate]
-    	[funcdef_header] ':
+    	'def [id] [parameters] ': 
         [indent] [endofline] 
-            [repeat fstatement+] 
+            [repeat fstmt+] 
 	[dedent] 
 	[opt end_xml_source_coordinate]
 end define
 
-define fstatement
-	[repeat newline] [statement]
+define doccomment
+	[longstringlit] [endofline]
+    | 	[longcharlit] [endofline]
+end define
+
+define fstmt
+	[repeat newline] [stmt]
 end define
 
 redefine indent
@@ -59,14 +59,17 @@ redefine dedent
 	[EX] 'DEDENT [NL]
 end redefine
 
+define xml_source_coordinate
+    '< [SPOFF] 'source [SP] 'file=[stringlit] [SP] 'startline=[stringlit] [SP] 'endline=[stringlit] '> [SPON] [NL]
+end define
+
+define end_xml_source_coordinate
+    '< [SPOFF] '/ 'source '> [SPON] [NL]
+end define
+
 redefine program
 	...
     | 	[repeat block_funcdef]
-end redefine
-
-% Specialize for Python
-redefine end_xml_source_coordinate
-    '</source> [NL]
 end redefine
 
 
@@ -83,21 +86,20 @@ function main
 end function
 
 rule convertFunctionDefinitions
-    import TXLargs [repeat stringlit]
-	FileNameString [stringlit]
-
     % Find each function definition and match its input source coordinates
     skipping [block_funcdef]
     replace [block_funcdef]
-	LineNumber [srclinenumber]
-	FunctionHeader [funcdef_header] ': Indent [indent] EOL [endofline] 
-	    DocString [opt docstring]
-            FunctionBody [repeat fstatement+] 
-	    EndLineNumber [srclinenumber] 
+	FileName [srcfilename] LineNumber [srclinenumber]
+    	'def FunctionId [id] Parameters [parameters] ': Indent [indent] EOL [endofline] 
+	    DocComment [opt doccomment]
+            FunctionBody [repeat fstmt+] 
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber] 
 	    _ [repeat newline]
 	Dedent [dedent] 
 
-    % Convert line numbers to strings for XML
+    % Convert file name and line numbers to strings for XML
+    construct FileNameString [stringlit]
+	_ [quote FileName] 
     construct LineNumberString [stringlit]
 	_ [quote LineNumber] 
     construct EndLineNumberMinus2 [number]
@@ -106,30 +108,28 @@ rule convertFunctionDefinitions
 	_ [quote EndLineNumberMinus2] 
 
     % Output is XML form with attributes indicating input source coordinates
-    construct XmlHeader [xml_source_coordinate]
-	'<source file=FileNameString startline=LineNumberString endline=EndLineNumberString>
     by
-	XmlHeader
-	    FunctionHeader ': 
+	<source file=FileNameString startline=LineNumberString endline=EndLineNumberString>
+	    'def FunctionId Parameters ': 
 	    Indent EOL 
 	        FunctionBody [unmarkEmbeddedFunctionDefinitions] 
 			     [reduceEndOfLines] [reduceEndOfLines2]
 			     [reduceNewlines] [reduceEmptyStmts]
 	    Dedent
-	'</source>
+	</source>
 end rule
 
 rule unmarkEmbeddedFunctionDefinitions
     replace [block_funcdef]
-	LineNumber [srclinenumber]
-    	FunctionHeader [funcdef_header] ': Indent [indent] EOL [endofline] 
-	    DocString [opt docstring]
-            FunctionBody [repeat fstatement+] 
-	    EndLineNumber [srclinenumber] 
+	FileName [srcfilename] LineNumber [srclinenumber]
+    	'def FunctionId [id] Parameters [parameters] ': Indent [indent] EOL [endofline] 
+	    DocComment [opt doccomment]
+            FunctionBody [repeat fstmt+] 
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber] 
 	    _ [repeat newline]
 	Dedent [dedent] 
     by
-        FunctionHeader ': 
+        'def FunctionId Parameters ': 
         Indent EOL 
 	    FunctionBody 
         Dedent
@@ -158,26 +158,26 @@ rule reduceNewlines
 end rule
 
 rule reduceEmptyStmts
-    replace [repeat statement_or_newline]
+    replace [repeat stmt_or_newline]
 	EOL [endofline]
-	Stmts [repeat statement_or_newline]
+	Stmts [repeat stmt_or_newline]
     by
 	Stmts
 end rule
 
 rule removeEmptyFunctions
     replace [repeat block_funcdef]
-	LineNumber [srclinenumber]
-    	FunctionHeader [funcdef_header] ': 
+	FileName [srcfilename] LineNumber [srclinenumber]
+    	'def FunctionId [id] Parameters [parameters] ': 
         Indent [indent] EOL [endofline] 
-	    DocString [opt docstring]
-            FunctionBody [repeat fstatement+] 
-	    EndLineNumber [srclinenumber] 
+	    DocComment [opt doccomment]
+            FunctionBody [repeat fstmt+] 
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber] 
 	    _ [repeat newline]
 	Dedent [dedent] 
 	More [repeat block_funcdef]
-    deconstruct not * [statement] FunctionBody
-	Stmt [statement]
+    deconstruct not * [stmt] FunctionBody
+	Stmt [stmt]
     by
 	More
 end rule
