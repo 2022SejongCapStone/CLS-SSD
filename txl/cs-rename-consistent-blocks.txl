@@ -1,10 +1,5 @@
-% NiCad consistent renaming - C# blocks
+% Consistent renaming - C# blocks
 % Jim Cordy, May 2010
-
-% Rev 19.5.20 JRC - Added blind renaming for numeric and string literals
-
-% NiCad tag grammar
-include "nicad.grm"
 
 % Using C# grammar
 include "csharp.grm"
@@ -21,7 +16,5 @@ define potential_clone
 end define
 
 % Generic consistent renaming
-include "generic-rename-consistent.rul"
+include "generic-rename-consistent.txl"
 
-% Literal renaming for C#
-include "cs-rename-literals.rul"

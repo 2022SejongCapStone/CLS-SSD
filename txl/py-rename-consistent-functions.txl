@@ -1,24 +1,19 @@
-% NiCad consistent renaming - Python functions
+% Consistent renaming - Python functions
 % Jim Cordy, May 2010
-
-% Rev 19.5.20 JRC - Added blind renaming for numeric and string literals
-
-% NiCad tag grammar
-include "nicad.grm"
 
 % Using Python grammar
 include "python.grm"
 
 % Redefinition for potential clones
 define block_funcdef
-    [funcdef_header] ': 
+    'def [id] [parameters] ': 
     [indent] [endofline] 
-	[repeat fstatement+] 
+	[repeat fstmt+] 
     [dedent] 
 end define
 
-define fstatement
-    [repeat newline] [statement]
+define fstmt
+    [repeat newline] [stmt]
 end define
 
 define potential_clone
@@ -34,16 +29,13 @@ redefine dedent
 end redefine
 
 % Generic consistent renaming
-include "generic-rename-consistent.rul"
+include "generic-rename-consistent.txl"
 
 % Specialize for Python
 redefine xml_source_coordinate
-    '<source [SPOFF] 'file=[stringlit] [SP] 'startline=[stringlit] [SP] 'endline=[stringlit] '> [SPON] [newline]
+    '< [SPOFF] 'source [SP] 'file=[stringlit] [SP] 'startline=[stringlit] [SP] 'endline=[stringlit] '> [SPON] [newline]
 end redefine
 
 redefine end_xml_source_coordinate
-    '</source> [newline]
+    '< [SPOFF] '/ 'source '> [SPON] [newline]
 end redefine
-
-% Literal renaming for Python
-include "py-rename-literals.rul"

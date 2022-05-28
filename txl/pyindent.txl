@@ -25,12 +25,6 @@
 
 % Modification Log:
 
-% v1.5, Jim Cordy, 24 July 2020
-%    Added acceptance and removal of CRs
-%
-% v1.4, Jim Cordy, 13 July 2020
-%    Optimized using replace $
-%
 % v1.3, Jim Cordy, 13 November 2008.
 %    Validated against 1,500 random Python programs, 
 %    including the entire Python demo set
@@ -69,9 +63,7 @@ comments
 end comments
 
 tokens
-    ignore  ...
-	|   "\\\n"
-	|   ""
+    ignore "\\\n"
 end tokens
 
 % For this transformation, the input is a sequence of lines
@@ -177,11 +169,13 @@ end rule
 
 % Insert a { before each new indentation level ...
 rule insertIndents
-    replace $ [repeat line]
+    replace [repeat line]
         Space1 [repeat tab_space] Content1 [repeat linetoken] NL [repeat endofline+] Dedents1 [repeat dedent] 
 	Rest [repeat line]
     deconstruct * [nonblank_token] Content1
     	_ [nonblank_token]
+    %% deconstruct not * [nonblank_token] Content1
+    	%% '\
     deconstruct Rest
         Space2 [repeat tab_space] Content2 [repeat linetoken] _ [opt indent] _ [repeat endofline+] _ [repeat dedent]
 	_ [repeat line]

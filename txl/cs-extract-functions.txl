@@ -1,14 +1,10 @@
-% NiCad function extractor, C#
+% Example using TXL 10.5a source coordinate extensions to extract
+% a table of all method definitions with source coordinates
+
 % Jim Cordy, January 2008
 
-% Revised Oct 2020 - new source file name protocol - JRC
-% Revised Apr 2019 - updated to use C# Edition 7 grammar - JRC
-% Revised Aug 2012 - disallow ouput forms in input parse - JRC
 % Revised July 2011 - ignore BOM headers in source
 % Revised 30.04.08 - unmark embedded functions - JRC
-
-% NiCad tag grammar
-include "nicad.grm"
 
 % Using C# grammar
 include "csharp.grm"
@@ -16,34 +12,51 @@ include "csharp.grm"
 % Ignore BOM headers from Windows
 include "bom.grm"
 
+% Temporary handling of designated Linq extensions
+redefine invocation_operator
+	...
+    |	'(( [repeat argument_list_or_key] '))
+end redefine
+
+define argument_list_or_key
+	[argument_list]
+    |	'in
+end define
+
 % Redefinitions to collect source coordinates for function definitions as parsed input,
 % and to allow for XML markup of function definitions as output
 
 redefine method_declaration
-        [opt attributes]    % Don't compare attributes in clone detection
-	[method_definition] [NL]
+	[method_definition]
     |
-	% Uninteresting interface and right arrow forms
-	[method_header] [opt right_arrow_expression] '; [NL]
+	% Uninteresting interface form
+	[method_header] ';			[NL]
 end redefine
 
 define method_definition
 	% Input form 
-	[srclinenumber] 			% Keep track of starting file and line number
+	[srcfilename] [srclinenumber] 		% Keep track of starting file and line number
 	[method_header]				
 	'{                                      [NL][IN] 
 	    [opt statement_list]     		[EX]
-	    [srclinenumber] 			% Keep track of ending file and line number
+	    [srcfilename] [srclinenumber] 	% Keep track of ending file and line number
 	'}  [opt ';]				
     |
 	% Output form 
-	[not token]				% disallow output form in input parse
 	[opt xml_source_coordinate]
 	[method_header]				
 	'{                                      [NL][IN] 
 	    [opt statement_list]     		[EX]
 	'}  [opt ';]				
 	[opt end_xml_source_coordinate]
+end define
+
+define xml_source_coordinate
+    '< [SPOFF] 'source [SP] 'file=[stringlit] [SP] 'startline=[stringlit] [SP] 'endline=[stringlit] '> [SPON] [NL]
+end define
+
+define end_xml_source_coordinate
+    [NL] '< [SPOFF] '/ 'source '> [SPON] [NL]
 end define
 
 redefine program
@@ -65,44 +78,41 @@ function main
 end function
 
 rule convertFunctionDefinitions
-    import TXLargs [repeat stringlit]
-	FileNameString [stringlit]
-
     % Find each function definition and match its input source coordinates
     replace [method_definition]
-	LineNumber [srclinenumber]
+	FileName [srcfilename] LineNumber [srclinenumber]
 	FunctionHeader [method_header]
 	'{
 	    FunctionBody [opt statement_list]
-	    EndLineNumber [srclinenumber]
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber]
 	'}  Semi [opt ';]
 
-    % Convert line numbers to strings for XML
+    % Convert file name and line numbers to strings for XML
+    construct FileNameString [stringlit]
+	_ [quote FileName] 
     construct LineNumberString [stringlit]
 	_ [quote LineNumber] 
     construct EndLineNumberString [stringlit]
 	_ [quote EndLineNumber] 
 
     % Output is XML form with attributes indicating input source coordinates
-    construct XmlHeader [xml_source_coordinate]
-	'<source file=FileNameString startline=LineNumberString endline=EndLineNumberString>
     by
-	XmlHeader
+	<source file=FileNameString startline=LineNumberString endline=EndLineNumberString>
 	FunctionHeader 
 	'{
-	    FunctionBody [unmarkEmbeddedFunctionDefinitions] 
+	    FunctionBody % [unmarkEmbeddedFunctionDefinitions] 
 	'}
-	'</source>
+	</source>
 end rule
 
 rule unmarkEmbeddedFunctionDefinitions
     replace [method_definition]
-	LineNumber [srclinenumber]
+	FileName [srcfilename] LineNumber [srclinenumber]
 	FunctionHeader [method_header]
 	'{
 	    FunctionBody [opt statement_list]
-	    EndLineNumber [srclinenumber]
-	'}  Semi [opt ';]
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber]
+	'}
     by
 	FunctionHeader 
 	'{
@@ -118,9 +128,9 @@ rule removeOptSemis
 end rule
 
 rule removeEmptyStatements
-    replace [repeat declaration_or_statement+]
+    replace [repeat statement+]
 	';
-	More [repeat declaration_or_statement+]
+	More [repeat statement+]
     by
 	More
 end rule

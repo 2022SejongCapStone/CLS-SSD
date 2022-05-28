@@ -1,7 +1,7 @@
-% TXL Java 8 Basis Grammar
-% Version 4.2, October 2020
+% TXL Java 1.5 Basis Grammar
+% Version 3.5, July 2011
 
-% Copyright 2001-2018 James R. Cordy, Xinping Guo and Thomas R. Dean
+% Copyright 2001-2011 James R. Cordy, Xinping Guo and Thomas R. Dean
 
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
@@ -23,40 +23,10 @@
 %    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 %    POSSIBILITY OF SUCH DAMAGE.
 
-% Originally based on the Java Language Specification, 2nd edition, 2001,
+% Based on the Java Language Specification, 2nd edition, 2001,
 % and updated to 3rd Edition, 2007
 
 % Modification Log:
-
-% v4.2, Jim Cordy, October 2020.
-%   Corrected formatting of class bodies, for loops.
-
-% v4.1, Jim Cordy, August 2018.
-%   Corrected cast expression to allow for lambda expressions.
-
-% v4.0, Jim Cordy, May 2018.
-%   Updated to Java 8.
-%   Added _ digit to all numeric tokens.
-%   Added optional class body to enums.
-%   Added default modifier.
-%   Updated with resourced try statement.
-%   Updated with multiple catch type specifiers.
-%   Added lambda expressions.
-%   Added method references.
-%   Corrected error in [conditional_expression].
-%   Added optional [expression_statement_no_semi] at end of [block].
-%   Validated against Qualitas Java corpus (44,817 files), 
-%        Java8InAction examples (100 files, covering all of Java 8), 
-%        GitHub random corpus of 1,000 Java projects (117,430 files).
-
-% v3.8, Jim Cordy, February 2018.
-%   Corrected label_name to [id].
-
-% v3.7, Jim Cordy, November 2015.
-%   Removed enum from keyword list.  In Java, enum is not reserved and may be used as an identifier.
-
-% v3.6, Jim Cordy, March 2012.
-%   Refactored to add [condition] for if/while conditions.
 
 % v3.5, Jim Cordy, July 2011.
 %   Tuning to improve parsing by specializing type components from reference compoenents
@@ -97,9 +67,9 @@
 %    too ambiguous. declared_name and refernce now have separate
 %    definitions. To handle javap output, redefine declared name
 %    as:
-%        redefine declared_name
-%            [repeat pkg_class_prefix] [id] [opt generic_parameter]
-%        end redefine
+%	redefine declared_name
+%	    [repeat pkg_class_prefix] [id] [opt generic_parameter]
+%	end redefine
 %    where pkg_class_prfix is defined as "[id] '."
 % -- removed >>, >>>, >>= and >>>= from compounds and inserted [SPOFF] [SPON]
 %    where they occur in the grammar. Conflicts with nested Genearics
@@ -108,7 +78,7 @@
 %
 % -- TODO:
 %      * Unicode. Java supposedly is Unicode in Java 5. Not exactly
-%         sure what it means for TXL.
+%	 sure what it means for TXL.
 %      * String escape codes including \u for unicode
 
 % v2.0-2.3, Xinping Guo, July 2002.
@@ -137,21 +107,20 @@
 % Lexical conventions of Java 
 
 % T.D. Oct 2007, added "$"
-#pragma -width 4096 -id "$"
+#pragma -width 1024 -id "$"
 
 tokens
     space  "[ \t]+"
     newline  "\n" | "" | "\n"
     id  "[$\u][$\i]*"
-    % JC 1 May 2018 - added _ digit to all forms 
-    number  "\d[\d_]*[lL]?"  % DecimalIntegerLiteral | OctalIntegerLiteral
-          | "\d[\d_]*.[\d_]*([eE][+-]?\d[\d_]*)?[fFdD]?"  % DecimalFloatingPointLiteral
-          | ".\d[\d_]*([eE][+-]?\d[\d_]*)?[fFdD]?"  % DecimalFloatingPointLiteral (cont.'d)
-          | "\d[\d_]*[eE][+-]?\d[\d_]*[fFdD]?"  % DecimalFloatingPointLiteral (cont.'d)
-          | "\d[\d_]*([eE][+-]?\d[\d_]*)?[fFdD]"  % DecimalFloatingPointLiteral (cont.'d)
-          | "0[xX][\dabcdefABCDEF][\d_abcdefABCDEF]*.[pP][+-]?\d[\d_]*[fFdD]?"  % HexadecimalFloatingPointLiteral
-          | "0[xX][\d_abcdefABCDEF]*.[\dabcdefABCDEF][\d_abcdefABCDEF]*[pP][+-]?\d[\d_]*[fFdD]?"  % HexadecimalFloatingPointLiteral (cont.'d)
-          | "0[xX][\dabcdefABCDEF][\d_abcdefABCDEF]*([pP][+-]?\d+)?[lLfFdD]?"  % HexIntegerLiteral | HexadecimalFloatingPointLiteral (cont.'d)
+    number  "\d+[lL]?"  % DecimalIntegerLiteral | OctalIntegerLiteral
+          | "\d+.\d*([eE][+-]?\d+)?[fFdD]?"  % DecimalFloatingPointLiteral
+          | ".\d+([eE][+-]?\d+)?[fFdD]?"  % DecimalFloatingPointLiteral (cont.'d)
+          | "\d+[eE][+-]?\d+[fFdD]?"  % DecimalFloatingPointLiteral (cont.'d)
+          | "\d+([eE][+-]?\d+)?[fFdD]"  % DecimalFloatingPointLiteral (cont.'d)
+          | "0[xX][\dabcdefABCDEF]+.[pP][+-]?\d+[fFdD]?"  % HexadecimalFloatingPointLiteral
+          | "0[xX][\dabcdefABCDEF]*.[\dabcdefABCDEF]+[pP][+-]?\d+[fFdD]?"  % HexadecimalFloatingPointLiteral (cont.'d)
+          | "0[xX][\dabcdefABCDEF]+([pP][+-]?\d+)?[lLfFdD]?"  % HexIntegerLiteral | HexadecimalFloatingPointLiteral (cont.'d)
 end tokens
 
 comments
@@ -168,12 +137,12 @@ end compounds
 
 % Removed this and super - XG June 19, 2002
 % added assert and enum - TD Oct 2007
-% removed cast, inner, they cannot be keywords - JRC Apr 08
-% removed enum, cannot be keyword - JRC Nov 15
+% removed enum, cast, inner, they cannot be keywords - JRC Apr 08
 keys
     'abstract 'assert 'boolean 'break 'byte
-    'case 'catch 'char 'class 'const 'continue
-    'default 'do 'double 'else 'extends
+    'case
+    'catch 'char 'class 'const 'continue
+    'default 'do 'double 'else 'enum 'extends
     'false 'final 'finally 'float 'for
     'goto 'if 'implements 'import
     'instanceof 'int 'interface 'long
@@ -199,7 +168,7 @@ define package_declaration
 end define
 
 define package_header
-    [repeat annotation]        	% T.D. Oct 2007
+    [repeat annotation]		% T.D. Oct 2007
     'package [package_name] '; [NL][NL]
 end define
 
@@ -209,8 +178,8 @@ end define
 
 % T.D. Oct 2007 added static import
 define import_declaration
-        'import [opt 'static] [imported_name] '; [NL][NL]
-    |         '; [NL] 	% JRC Apr 08
+	'import [opt 'static] [imported_name] '; [NL][NL]
+    | 	'; [NL] 	% JRC Apr 08
 end define
 
 define imported_name
@@ -226,7 +195,7 @@ define dot_star
 end define
 
 define declared_name
-   [id] [opt generic_parameter]        	% T.D. Nov 2007
+   [id] [opt generic_parameter]		% T.D. Nov 2007
 end define
 
 % Class and interface declarations
@@ -234,7 +203,7 @@ end define
 define type_declaration
         [class_declaration]      [NL][NL]
     |   [interface_declaration]  [NL][NL]
-    |   [enum_declaration]         [NL]		% T.D. Oct 2007
+    |   [enum_declaration]	 [NL]		% T.D. Oct 2007
 end define
 
 define class_declaration
@@ -284,9 +253,8 @@ define enum_body
 end define
 
 define enum_element
-        				  [NL]
-        [repeat modifier] [id] [opt method_argument] 
-        [opt class_or_interface_body]	% JC May 2018
+					  [NL]
+	[id] [opt method_argument]	% opt instance initializer
 end define
 
 define modifier
@@ -300,9 +268,8 @@ define modifier
     |   'volatile
     |   'native
     |   'synchronized
-    |   'strictfp        	% Added strictfp XG July 23, 2002
-    |   [annotation]        	% T.D. Oct 2007
-    |        'default	% JC 1 May 2018
+    |   'strictfp		% Added strictfp XG July 23, 2002
+    |   [annotation]		% T.D. Oct 2007
 end define
 
 define extends_clause
@@ -323,8 +290,8 @@ end define
 
 define class_or_interface_body
     '{                                    [NL][IN]
-       [repeat class_body_declaration]    [NL][EX]
-    '} [opt ';]                           [NL]
+       [repeat class_body_declaration]    [EX]
+    '} [opt ';]                           [NL][NL]
 end define
 
 define class_body_declaration
@@ -359,7 +326,7 @@ end define
 
 % to match Java Code like:
 % public <T> void someMethod(T t) {
-%        // ...
+%	// ...
 % }
 define constructor_declaration
     [NL] [repeat modifier] [opt generic_parameter] [constructor_declarator] [opt throws] [constructor_body] [NL][NL]
@@ -377,11 +344,11 @@ end define
 % Field declarations 
 
 define field_declaration
-    [variable_declaration] [NL]
+    [variable_declaration]
 end define
 
 define variable_declaration
-    [repeat modifier] [type_specifier] [variable_declarators] '; 
+    [repeat modifier] [type_specifier] [variable_declarators] '; [NL]
 end define
 
 define variable_declarators
@@ -427,17 +394,12 @@ end define
 
 % T.D. Oct 2007 added var_arg
 define formal_parameter
-    [repeat variable_modifier] [type_specifier] [opt var_arg_specifier] [formal_parameter_name]
-end define
-
-define variable_modifier
-        'final
-    |        [annotation]
+    [repeat annotation] [opt 'final] [type_specifier] [opt var_arg_specifier] [formal_parameter_name]
 end define
 
 % T.D. Oct 2007
 define var_arg_specifier
-        '...		% can only be applied to last parameter of method
+	'...		% can only be applied to last parameter of method
 end define
 
 define formal_parameter_name
@@ -449,10 +411,19 @@ define throws
 end define
 
 define method_body
-        [block]  [NL][NL]
-    |        ';       [NL][NL]
-    |   'default [annotation_value] ';  [NL][NL]
+        [block]        [NL][NL]
+    |  [opt annotation_default] ';             [NL][NL]		% T.D. Oct 2007
 end define
+
+% to match Java Code like: (used in javax.xml.bind.annotation.XmlType.java)
+% // ...
+% String[] propOrder() default {""};
+% // ...
+define annotation_default	% or maybe only 'default [variable_initializer]!?
+       'default [expression]			% must be constant	% T.D. Oct 2007
+    |  'default [array_initializer]
+end define
+
 
 % Type specifiers
 
@@ -465,17 +436,17 @@ define array_type_specifier
 end define
 
 define type_name
-            [primitive_type_or_id] [repeat type_component]
+    	[primitive_type_or_id] [repeat type_component]
 end define
 
 define primitive_type_or_id
-        [primitive_type]
-    |        [id]
+	[primitive_type]
+    |	[id]
 end define
 
 define type_component
      [dot_id]
-   | [generic_argument]                           % T.D. Nov 2007
+   | [generic_argument]	                   % T.D. Nov 2007
 end define
 
 define primitive_type
@@ -493,7 +464,7 @@ end define
 % Annotations - T.D. Oct 2007
 
 define annotation
-   [SPOFF] '@ [type_name] [opt '@] [SPON] [opt annotation_value_spec]        	[NL]
+   [SPOFF] '@ [reference] [opt '@] [SPON] [opt annotation_value_spec]		[NL]
 end define
 
 define annotation_value_spec
@@ -501,14 +472,14 @@ define annotation_value_spec
 end define
 
 define annotation_value_list
-      [annotation_value]
+      [single_annotation_value]	% for single value annotation
     | [list keyed_annotation_value]
 end define
 
-define annotation_value
-      [expression]
+define single_annotation_value
+      [expression]					% must be constant
     | [nested_annotation]
-    | { [list expression_or_nested_annotation] [opt ',] }
+    | { [list expression_or_nested_annotation] }	% array of annotation values
 end define
 
 define nested_annotation
@@ -521,26 +492,25 @@ define expression_or_nested_annotation
 end define
 
 define keyed_annotation_value
-    [id] '= [annotation_value]
+    [id] '= [single_annotation_value]
 end define
 
 % Statements
 
 define block
     '{                                        [NL][IN] 
-        [repeat declaration_or_statement]     
-        [opt expression_statement_no_semi]    [EX]
+        [repeat declaration_or_statement]     [EX]
     '}
 end define
 
 define declaration_or_statement
-        [declaration]
-    |        [class_declaration] 
+	[declaration]
     |   [statement]
 end define
 
 define declaration
-    [local_variable_declaration]  [NL]
+        [local_variable_declaration] 
+    |   [class_declaration]
 end define
 
 define local_variable_declaration
@@ -556,19 +526,15 @@ define statement
     |   [while_statement]
     |   [do_statement]
     |   [for_statement]
-    |   [for_in_statement]        	% T.D. Oct 2007
+    |   [for_in_statement]		% T.D. Oct 2007
     |   [break_statement]
     |   [continue_statement]
     |   [return_statement]
     |   [throw_statement]
     |   [synchronized_statement]
     |   [try_statement]
-    |   [assert_statement]        	% T.D. Oct 2007
-    |   [block_statement]
-end define
-
-define block_statement
-        [block] 	   [NL]
+    |   [assert_statement]		% T.D. Oct 2007
+    |   [block]
 end define
 
 define empty_statement
@@ -576,26 +542,22 @@ define empty_statement
 end define
 
 define label_statement
-    [label_name] ': [statement]        	% T.D. Oct 2007 -- label applies to a given statement
-            				% -- more than one label may be applied to a statement
+    [label_name] ': [statement]		% T.D. Oct 2007 -- label applies to a given statement
+    					% -- more than one label may be applied to a statement
 end define
 
 define label_name
-    [id]
+    [reference]
 end define
 
 define expression_statement
     [expression] ';        [NL]
 end define
 
-define expression_statement_no_semi
-    [expression]           [NL]
-end define
-
 define if_statement
-    'if '( [condition] ')     
+    'if '( [expression] ')     
         [statement]
-    [opt else_clause]      
+    [opt else_clause]      [NL]
 end define
 
 define else_clause
@@ -624,19 +586,19 @@ define switch_label
 end define
 
 define while_statement
-    'while '( [condition] ') 
-        [statement]
+    'while '( [expression] ') 
+        [statement]                            [NL]                         
 end define
 
 define do_statement
     'do
         [statement]
-    'while '( [condition] ') ';                [NL]
+    'while '( [expression] ') ';               [NL]
 end define
 
 define for_statement
     'for '( [for_init] [for_expression] [for_update] ')
-        [statement]
+        [statement]                            [NL]
 end define
 
 define for_init
@@ -653,14 +615,14 @@ define for_update
 end define
 
 % T.D. Oct 2007
-define for_in_statement        
+define for_in_statement	
     'for '( [for_in_init] : [expression] ')
-        [statement]
+        [statement]                            [NL]
 end define
 
 % T.D. Oct 2007
 define for_in_init
-        [repeat modifier] [type_specifier] [variable_name]
+	[repeat modifier] [type_specifier] [variable_name]
 end define
 
 define break_statement
@@ -681,46 +643,17 @@ end define
 
 define synchronized_statement
     'synchronized '( [expression] ')
-        [statement]
+        [statement]                  [NL]
 end define
 
 define try_statement
-    'try [resource_specification?] [block] [repeat catch_clause] [opt finally_clause]    [NL]
+    'try [block] [repeat catch_clause] [opt finally_clause]    [NL]
 end define
-
-% begin JC 1 May 2018
-define resource_specification
-    '( [resource_list] [opt ';] ')
-end define
-
-define resource_list
-        [resource] [semi_resource*] 
-end define
-
-define resource
-        [repeat variable_modifier] [type_specifier] [variable_name] '= [expression]
-end define
-
-define semi_resource
-        '; [resource]
-end define
-
-% end JC 1 May 2018
 
 define catch_clause
 %    'catch '( [type_specifier] [reference] ') [block] 
-    'catch '( [repeat modifier] [catch_type_specifier] [variable_name] ') [block]  % July 15
+    'catch '( [repeat modifier] [type_specifier] [variable_name] ') [block]  % July 15
 end define
-
-% begin JC 1 May 2018
-define catch_type_specifier
-        [type_specifier] [or_type_specifier*]
-end define
-
-define or_type_specifier
-        '| [type_specifier]
-end define
-% end JC 1 May 2018
 
 define finally_clause
     'finally [block] 
@@ -728,12 +661,12 @@ end define
 
 % T.D. Oct 2007
 define assert_statement
-    'assert [expression] [opt assert_error_code]';        	[NL]
+    'assert [expression] [opt assert_error_code]';		[NL]
 end define
 
 % T.D. Oct 2007
 define assert_error_code
-        ': [expression]
+	': [expression]
 end define
 
 % Expressions
@@ -743,42 +676,8 @@ define constant_expression
 end define
 
 define expression
-        [lambda_expression]	% JC 1 May 2018
-    |        [assignment_expression]
+    [assignment_expression]
 end define
-
-define condition
-    [expression]
-end define
-
-% begin JC 1 May 2018
-compounds
-    ->
-end compounds
-
-define lambda_expression
-        [lambda_parameters] '-> [lambda_body]
-end define
-
-define lambda_parameters
-        [id]
-    |        '( [list lambda_parameter] ')
-end define
-
-define lambda_parameter
-        [formal_parameter]
-    |        [inferred_formal_parameter]
-end define
-
-define inferred_formal_parameter
-        [id]
-end define
-
-define lambda_body
-        [expression]
-    |        [block]
-end define
-% end JC 1 May 2018
 
 define assignment_expression
         [conditional_expression]
@@ -801,7 +700,7 @@ define assignment_operator
 end define
 
 define conditional_expression
-    [conditional_or_expression] [repeat conditional_choice]
+    [conditional_or_expression] [opt conditional_choice]
 end define
 
 define conditional_choice
@@ -925,8 +824,7 @@ define unary_op
 end define
 
 define cast_expression
-        '( [type_specifier] ') [unary_expression]
-    |        '( [type_specifier] ') [lambda_expression]
+    '( [type_specifier] ') [unary_expression]
 end define
 
 define postfix_expression
@@ -994,7 +892,7 @@ define class_or_interface_name
 end define
 
 % new
-define class_or_interface_component        % to match e.g. new java.util.HashSet<String>()
+define class_or_interface_component	% to match e.g. new java.util.HashSet<String>()
         [dot_id]
     |   [generic_argument]
 end define
@@ -1008,8 +906,8 @@ define dimension
 end define
 
 define argument
-        [expression]
-    |         [type_specifier]
+	[expression]
+    | 	[type_specifier]
 end define
 
 define qualified_name
@@ -1017,8 +915,8 @@ define qualified_name
 end define
 
 define reference
-        [id] [repeat component]
-    |        [primitive_type] [repeat component]
+	[id] [repeat component]
+    |	[primitive_type] [repeat component]
 end define
 
 % to match an instance creation of an inner class:
@@ -1027,20 +925,9 @@ define component
      [dot_id]
    | [method_argument]
    | [subscript] 
-   | [generic_argument]                           % T.D. Nov 2007
+   | [generic_argument]	                   % T.D. Nov 2007
    | [class_instance_creation_expression]  % JRC 8.6.10
-   | [dimension]        		   % JRC 9.6.10
-   | [method_reference]  % JC 1 May 2018
-end define
-
-compounds
-    ::
-end compounds
-
-% JC 1 May 2018
-define method_reference
-             ':: [generic_argument?] [id]
-     |        ':: 'new
+   | [dimension]			   % JRC 9.6.10
 end define
 
 define class_instance_declaration
@@ -1053,8 +940,8 @@ define method_argument
 end define
 
 define dot_id
-        '. [opt generic_argument] [id]	   % JRC 8.6.10
-    |   '. 'class
+	'. [opt generic_argument] [id]	   % JRC 8.6.10
+    | 	'. 'class
     |   '. [class_instance_declaration]
 end define
 

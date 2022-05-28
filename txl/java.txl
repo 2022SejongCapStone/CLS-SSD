@@ -1,21 +1,15 @@
-% TXL Java 8 Basis Grammar
-% Version 4.2, October 2020
+% Example using TXL 10.5a source coordinate extensions to extract
+% a table of all method definitions with source coordinates
 
-% Copyright 2001-2020 James R. Cordy, Xinping Guo and Thomas R. Dean
+% Jim Cordy, January 2008
 
-% Simple null program to test the Java grammar
+% Requires TXL 10.5a or later
 
-% TXL Java 8 Grammar
+% Using Java 5 grammar
 include "java.grm"
 
-% Ignore BOM headers 
-include "bom.grm"
-
-% Just parse
+% Main function - extract and mark up function definitions from parsed input program
 function main
-    replace [program] 
-        P [program]
-    by
-	P
+    match [program]
+	P [program]
 end function
-

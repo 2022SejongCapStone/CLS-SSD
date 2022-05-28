@@ -1,8 +1,7 @@
-% NiCad extract and expand WSDL operations definitions from WSDL files
+% Extract and expand WSDL operations definitions from WSDL files
 % Doug Martin, Queen's University
 % Summer 2009
 
-% Revised Oct 2020 - new source file name protocol - JRC
 % Revised July 2011 - ignore BOM headers in source
 
 include "wsdl.grm"
@@ -41,13 +40,13 @@ redefine element
 end redefine
 
 redefine operation 
-        [attr srclinenumber] 
+        [attr srcfilename] [attr srclinenumber] 
         [SPOFF] '< [opt prefix] 'operation [opt attribute_list] [SPON] '>   [NL][IN]
             [repeat operation_scope]                                        [EX]
         [attr srclinenumber] 
 	[SPOFF] '</ [opt prefix] 'operation> [SPON]                         [NL]
     |  
-        [attr srclinenumber] 
+        [attr srcfilename] [attr srclinenumber] 
 	[SPOFF] '< [opt prefix] 'operation [opt attribute_list] '/> [SPON]  [NL]
 end redefine
 
@@ -95,15 +94,14 @@ function main
 end function 
 
 function constructOperations Operation [operation]
-    import TXLargs [repeat stringlit]
-	FileNameString [stringlit]
-
     replace [repeat source]
         PreviousOperations [repeat source]
     deconstruct Operation 
-        BeginLine [srclinenumber] '< _ [opt prefix] 'operation AttrList [opt attribute_list] '>     
+        File [srcfilename] BeginLine [srclinenumber] '< _ [opt prefix] 'operation AttrList [opt attribute_list] '>     
             Contents [repeat operation_scope]     
         EndLine [srclinenumber] '</ _ [opt prefix] 'operation>
+    construct Filename [stringlit]
+        _ [quote File]
     construct BeginLineNumber [stringlit]
         _ [quote BeginLine]
     construct EndLineNumber [stringlit]
@@ -135,7 +133,7 @@ function constructOperations Operation [operation]
             NewOperationContents
         '</'operation>
     construct SourceTag [source]
-        '<'source 'file= FileNameString 'startline= BeginLineNumber 'endline= EndLineNumber '>
+        '<'source 'file= Filename 'startline= BeginLineNumber 'endline= EndLineNumber '>
             NewOperation
         '</'source>
     by 

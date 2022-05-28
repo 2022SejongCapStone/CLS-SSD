@@ -1,13 +1,10 @@
-% NiCad function extractor, C
+% Example using TXL 10.5a source coordinate extensions to extract
+% a table of all function definitions with source coordinates
+
 % Jim Cordy, January 2008
 
-% Revised Oct 2020 - new source file name protocol - JRC
-% Revised Aug 2012 - disallow ouput forms in input parse - JRC
 % Revised July 2011 - ignore BOM headers in source
 % Revised 30.04.08 - unmark embedded functions - JRC
-
-% NiCad tag grammar
-include "nicad.grm"
 
 % Using Gnu C grammar
 include "c.grm"
@@ -20,24 +17,31 @@ include "bom.grm"
 
 redefine function_definition
 	% Input form 
-	[srclinenumber] 			% Keep track of starting file and line number
+	[srcfilename] [srclinenumber] 		% Keep track of starting file and line number
 	[function_header]
-	[opt KP_parameter_decls]
+	[opt KR_parameter_decls]
 	'{ 				[IN][NL]
 	    [compound_statement_body]	[EX]
-	    [srclinenumber] 			% Keep track of ending file and line number
+	    [srcfilename] [srclinenumber] 	% Keep track of ending file and line number
 	'}
     |
 	% Output form 
-        [not token]                             % disallow output form in input parse
 	[opt xml_source_coordinate]
 	[function_header]
-	[opt KP_parameter_decls]
+	[opt KR_parameter_decls]
 	'{ 				[IN][NL]
 	    [compound_statement_body] 	[EX]
 	'}
 	[opt end_xml_source_coordinate]
 end redefine
+
+define xml_source_coordinate
+    '< [SPOFF] 'source [SP] 'file=[stringlit] [SP] 'startline=[stringlit] [SP] 'endline=[stringlit] '> [SPON] [NL]
+end define
+
+define end_xml_source_coordinate
+    [NL] '< [SPOFF] '/ 'source '> [SPON] [NL]
+end define
 
 redefine program
 	...
@@ -58,50 +62,47 @@ function main
 end function
 
 rule convertFunctionDefinitions
-    import TXLargs [repeat stringlit]
-	FileNameString [stringlit]
-
     % Find each function definition and match its input source coordinates
     replace [function_definition]
-	LineNumber [srclinenumber]
+	FileName [srcfilename] LineNumber [srclinenumber]
 	FunctionHeader [function_header]
-	KP_Parms [opt KP_parameter_decls]
+	KR_Parms [opt KR_parameter_decls]
 	'{
 	    FunctionBody [compound_statement_body]
-	    EndLineNumber [srclinenumber]
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber]
 	'}
 
-    % Convert line numbers to strings for XML
+    % Convert file name and line numbers to strings for XML
+    construct FileNameString [stringlit]
+	_ [quote FileName] 
     construct LineNumberString [stringlit]
 	_ [quote LineNumber]
     construct EndLineNumberString [stringlit]
 	_ [quote EndLineNumber]
 
     % Output is XML form with attributes indicating input source coordinates
-    construct XmlHeader [xml_source_coordinate]
-	'<source file=FileNameString startline=LineNumberString endline=EndLineNumberString>
     by
-	XmlHeader
+	<source file=FileNameString startline=LineNumberString endline=EndLineNumberString>
 	FunctionHeader 
-	KP_Parms
+	KR_Parms
 	'{
 	    FunctionBody [unmarkEmbeddedFunctionDefinitions]
 	'}
-	'</source>
+	</source>
 end rule
 
 rule unmarkEmbeddedFunctionDefinitions
     replace [function_definition]
-	LineNumber [srclinenumber]
+	FileName [srcfilename] LineNumber [srclinenumber]
 	FunctionHeader [function_header]
-	KP_Parms [opt KP_parameter_decls]
+	KR_Parms [opt KR_parameter_decls]
 	'{
 	    FunctionBody [compound_statement_body]
-	    EndLineNumber [srclinenumber]
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber]
 	'}
     by
 	FunctionHeader 
-	KP_Parms
+	KR_Parms
 	'{
 	    FunctionBody
 	'}
@@ -115,9 +116,9 @@ rule removeOptSemis
 end rule
 
 rule removeEmptyStatements
-    replace [repeat block_item]
+    replace [repeat declaration_or_statement]
 	';
-	More [repeat block_item]
+	More [repeat declaration_or_statement]
     by
 	More
 end rule

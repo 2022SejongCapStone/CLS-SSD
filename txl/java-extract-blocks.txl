@@ -1,13 +1,9 @@
-% NiCad block extractor, Java
+% Example using TXL 10.5a source coordinate extensions to extract
+% a table of all blocks with source coordinates
+
 % Jim Cordy, October 2009
 
-% Revised Oct 2020 - new source file name protocol - JRC
-% Revised July 2018 - update to match new Java 8 grammar - JRC
-% Revised Aug 2012 - disallow output forms in input parse - JRC
 % Revised July 2011 - ignore BOM headers in source
-
-% NiCad tag grammar
-include "nicad.grm"
 
 % Using Java grammar
 include "java.grm"
@@ -19,25 +15,27 @@ include "bom.grm"
 % and to allow for XML markup of blocks as output
 
 redefine block
-	% Input form
-	[srclinenumber] 		% Keep track of starting file and line number
+	% Input form 
+	[srcfilename] [srclinenumber] 		% Keep track of starting file and line number
 	{ [IN] [NL]
-	    [block_contents] [EX]
-	    [srclinenumber] 		% Keep track of ending file and line number
+	    [repeat declaration_or_statement] [EX]
+	    [srcfilename] [srclinenumber] 	% Keep track of ending file and line number
         } [opt ';] [NL]
     |
-	% Output form
-	[not token]			% disallow input parse of this form
+	% Output form 
 	[opt xml_source_coordinate]
 	{ [IN] [NL]
-	    [block_contents] [EX]
+	    [repeat declaration_or_statement] [EX]
         } [opt ';] [NL]
 	[opt end_xml_source_coordinate]
 end redefine
 
-define block_contents
-	[repeat declaration_or_statement]
-	[opt expression_statement_no_semi]
+define xml_source_coordinate
+    '< [SPOFF] 'source [SP] 'file=[stringlit] [SP] 'startline=[stringlit] [SP] 'endline=[stringlit] '> [SPON] [NL]
+end define
+
+define end_xml_source_coordinate
+    '< [SPOFF] '/ 'source '> [SPON] [NL]
 end define
 
 redefine program
@@ -59,41 +57,38 @@ function main
 end function
 
 rule convertCompoundStatements
-    import TXLargs [repeat stringlit]
-	FileNameString [stringlit]
-
     % Find each block and match its input source coordinates
     skipping [block]
     replace [block]
-	LineNumber [srclinenumber]
+	FileName [srcfilename] LineNumber [srclinenumber]
 	'{ 
-	    CompoundBody [block_contents] 
-	    EndLineNumber [srclinenumber]
+	    CompoundBody [repeat declaration_or_statement] 
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber]
 	'} Semi [opt ';]
 
-    % Convert line numbers to strings for XML
+    % Convert file name and line numbers to strings for XML
+    construct FileNameString [stringlit]
+	_ [quote FileName]
     construct LineNumberString [stringlit]
 	_ [quote LineNumber]
     construct EndLineNumberString [stringlit]
 	_ [quote EndLineNumber]
 
     % Output is XML form with attributes indicating input source coordinates
-    construct XmlHeader [xml_source_coordinate]
-	'<source file=FileNameString startline=LineNumberString endline=EndLineNumberString>
     by
-	XmlHeader
+	<source file=FileNameString startline=LineNumberString endline=EndLineNumberString>
 	{ 
 	    CompoundBody [unmarkEmbeddedCompoundStatements] 
 	'}
-	'</source>
+	</source>
 end rule
 
 rule unmarkEmbeddedCompoundStatements
     replace [block]
-	LineNumber [srclinenumber]
+	FileName [srcfilename] LineNumber [srclinenumber]
 	'{ 
-	    CompoundBody [block_contents]
-	    EndLineNumber [srclinenumber]
+	    CompoundBody [repeat declaration_or_statement] 
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber]
 	'} Semi [opt ';]
     construct Empty [opt xml_source_coordinate] 
 	% none, to force output form

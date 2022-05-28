@@ -1,12 +1,9 @@
-% NiCad block extractor, C 
+% Example using TXL 10.5a source coordinate extensions to extract
+% a table of all compound statements with source coordinates
+
 % Jim Cordy, October 2009
 
-% Revised Oct 2020 - new source file name protocol - JRC
-% Revised Aug 2012 - disallow output forms in input parse - JRC
 % Revised July 2011 - ignore BOM headers in source
-
-% NiCad tag grammar
-include "nicad.grm"
 
 % Using Gnu C grammar
 include "c.grm"
@@ -19,20 +16,27 @@ include "bom.grm"
 
 redefine compound_statement
 	% Input form 
-	[srclinenumber] 			% Keep track of starting file and line number
+	[srcfilename] [srclinenumber] 		% Keep track of starting file and line number
 	{ [IN] [NL]
 	    [compound_statement_body] [EX]
-	    [srclinenumber] 			% Keep track of ending file and line number
+	    [srcfilename] [srclinenumber] 	% Keep track of ending file and line number
         } [opt ';] [NL]
     |
 	% Output form 
-	[not token]				% disallow input parse of this form
 	[opt xml_source_coordinate]
 	{ [IN] [NL]
 	    [compound_statement_body] [EX]
         } [opt ';] [NL]
 	[opt end_xml_source_coordinate]
 end redefine
+
+define xml_source_coordinate
+    '< [SPOFF] 'source [SP] 'file=[stringlit] [SP] 'startline=[stringlit] [SP] 'endline=[stringlit] '> [SPON] [NL]
+end define
+
+define end_xml_source_coordinate
+    '< [SPOFF] '/ 'source '> [SPON] [NL]
+end define
 
 redefine program
 	...
@@ -53,41 +57,38 @@ function main
 end function
 
 rule convertCompoundStatements
-    import TXLargs [repeat stringlit]
-	FileNameString [stringlit]
-
     % Find each compound statement and match its input source coordinates
     skipping [compound_statement]
     replace [compound_statement]
-	LineNumber [srclinenumber]
+	FileName [srcfilename] LineNumber [srclinenumber]
 	'{ 
 	    CompoundBody [compound_statement_body] 
-	    EndLineNumber [srclinenumber]
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber]
 	'} Semi [opt ';]
 
-    % Convert line numbers to strings for XML
+    % Convert file name and line numbers to strings for XML
+    construct FileNameString [stringlit]
+	_ [quote FileName] 
     construct LineNumberString [stringlit]
 	_ [quote LineNumber]
     construct EndLineNumberString [stringlit]
 	_ [quote EndLineNumber]
 
     % Output is XML form with attributes indicating input source coordinates
-    construct XmlHeader [xml_source_coordinate]
-	'<source file=FileNameString startline=LineNumberString endline=EndLineNumberString>
     by
-	XmlHeader
+	<source file=FileNameString startline=LineNumberString endline=EndLineNumberString>
 	{ 
 	    CompoundBody [unmarkEmbeddedCompoundStatements] 
 	'}
-	'</source>
+	</source>
 end rule
 
 rule unmarkEmbeddedCompoundStatements
     replace [compound_statement]
-	LineNumber [srclinenumber]
+	FileName [srcfilename] LineNumber [srclinenumber]
 	'{ 
 	    CompoundBody [compound_statement_body] 
-	    EndLineNumber [srclinenumber]
+	    EndFileName [srcfilename] EndLineNumber [srclinenumber]
 	'} Semi [opt ';]
     construct Empty [opt xml_source_coordinate] 
 	% none, to force output form
@@ -106,9 +107,9 @@ rule removeOptSemis
 end rule
 
 rule removeEmptyStatements
-    replace [repeat block_item]
+    replace [repeat declaration_or_statement]
 	';
-	More [repeat block_item]
+	More [repeat declaration_or_statement]
     by
 	More
 end rule
