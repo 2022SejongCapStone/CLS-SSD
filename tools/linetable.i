@@ -5,18 +5,18 @@
 % J.R. Cordy, C.D. Halpern, E.M. Promislow & I.H. Carmichael
 % March 2003
 
-% Version 1.1 (11 April 2010)
+% Version 1.4 (16 Oct 2020)
 
 module linetable
     import (maxlinechars, maxlines)
-    export (LN, install, gettext, printstats)
+    export (LN, strip, install, gettext, printstats)
 
     % Text of all unique lines
     var lineText : array 1 .. maxlinechars + 1 of char
     var lineTextSize := 1
 
     % Hash table of all unique lines
-    var lineTable : array 0 .. maxlines - 1 of int
+    var lineTable : array 0 .. maxlines - 1 of int	
     var lineTableSize := 0
     const nilLine := 0
 
@@ -32,7 +32,7 @@ module linetable
     type (string,lineText (1)) := " "	% need one character here as placeholder
     lineTextSize += 2
 
-    lineTable (0) := addr (lineText (2))	% line 0 is the null line, with no characters in it
+    lineTable (0) := 2			% line 0 is the null line, with no characters in it
     lineTableSize := 1
 
 
@@ -41,6 +41,9 @@ module linetable
     function hash (s : string) : nat
 	type nat256 : array 0 .. 255 of nat1
 	var register h : nat := length (s)
+	if h > 255 then
+	    h := 255
+	end if
 	var register j := h - 1
 	if h > 0 then
 	    for i : 0 .. h shr 1
@@ -74,30 +77,42 @@ module linetable
     spaceP (ord (' ')) := true
     spaceP (ord ('\t')) := true
     spaceP (ord ('\f')) := true
-    
 
-    function install (rawline : string) : LN
 
+    function strip (rawline : string) : string
         % Trim spaces from the line
 	var line := rawline
  	var rawlinelength := length (rawline)
+
 	var first := 1
 	loop
 	    exit when first > rawlinelength or not spaceP (ord (line (first)))
 	    first += 1
 	end loop
+
 	var last := rawlinelength
 	loop
-	    exit when last < 1 or not spaceP (ord (line (last)))
+	    exit when last < first or not spaceP (ord (line (last)))
 	    last -= 1
 	end loop
+
 	line := line (first .. last)
+
+	result line
+    end strip
+    
+
+    function install (line : string) : LN
+	% Assume already stripped
+	pre line = strip (line)
 
 	% Now hash it
 	var lineIndex : nat := hash (line)
+
 	if lineIndex >= maxlines then
-	    lineIndex := lineIndex mod maxlines
+	    lineIndex := lineIndex mod maxlines 
 	end if
+
 	const startIndex : nat := lineIndex
 	const linelength := length (line)
 

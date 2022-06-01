@@ -7,12 +7,14 @@
  *
  */
 
+/* Revised for T+ 6.0 long strings - JRC 1.10.18 */
+/* Revised to be both 32- and 64-bit compatible - JRC 11.8.15 */
 /* Fixed bug in file table overflow handling -- JRC 21.8.95 */
 /* Fixed bug in fetcharg implementation -- JRC 14.2.96 */
 /* TL_TLI_TLIFS added to allow flushing of buffered streams -- JRC 18.3.97 */
 /* Added support for character append files -- JRC 15.6.05 */
 
-#include "cinterface"
+#include "UNIX/cinterface"
 
 #define CHAR_READ	1
 #define CHAR_WRITE	2
@@ -40,7 +42,7 @@ void TL_TLI_TLIOF (openMode, fileName, streamNo)
 	    return;
 	}
 	*streamNo = sn;
-	duplicate = (char *) (malloc (256));
+	duplicate = (char *) (malloc (4096));
 	strcpy (duplicate, fileName);
 	TL_filenames [*streamNo+2] = duplicate;
 
