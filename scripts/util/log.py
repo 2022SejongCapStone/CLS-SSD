@@ -17,3 +17,7 @@ class logger(bcolors):
   def log(self, format, *args):
     if self.flag:
       print("[log.py]", self.HEADER + self.WARNING, format%args, self.ENDC)
+  
+  def warn(self, format, *args):
+    if self.flag:
+      print("[log.py]", self.HEADER + self.FAIL, format%args, self.ENDC)
