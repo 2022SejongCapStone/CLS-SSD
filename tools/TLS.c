@@ -7,6 +7,12 @@
  *
  */
 
+/* Revised to be both 32- and 64-bit compatible - JRC 11.8.15 */
+/* Added missing implicit includes - JRC 11.8.15 */
+
+#include <string.h>
+#include <stdio.h>
+
 void TL_TLS_TLSBXS (target, endOffset, startIndex, source)
     char * target;
     int endOffset, startIndex;
@@ -192,6 +198,6 @@ char *source;
 int base; /* 10 */
 {
     int	answer;
-    sscanf (source, "%li", &answer);
+    sscanf (source, "%i", &answer);
     return (answer);
 }
