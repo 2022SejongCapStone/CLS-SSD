@@ -23,11 +23,13 @@ argv
 
 import os
 import sys
-import subprocess
 from util.log import logger
+from util.ICloneIndex import ICloneIndex
+from util.DBscan import DBscan
+import time
 
 absolute_root_path = ""
-
+  
 def usage():
   print("Execution")
   print("python3 ./scripts/analysis.py c function 123 blind generous /path/to/source /path/to/output")
@@ -59,7 +61,7 @@ def main():
   source_path = sys.argv[6]
   output_path = sys.argv[7]
 
-  log = logger(True)
+  log = logger(False)
   log.log("Argument")
   log.log("  language         : %s", language)
   log.log("  granularity      : %s", granularity)
@@ -75,25 +77,46 @@ def main():
   # output
   #   functions-blind.xml | functions.xml in `output_path`
   
+  start = time.time()
+  # @TODO ExtractAndRename 속도 향상 필요
   res = os.system(f"{absolute_root_path}/scripts/ExtractAndRename {language} {granularity} {rename} {source_path} {output_path}")
-  print(res)
+  end = time.time()
+  print(f"ExtractAndRename Returned : {res}")
+  print("time : {}".format(end - start))
 
+  # Parsing CodeFragment And updated Simhash
 
-  # Parsing CodeFragment And update Simhash
+  CloneIndex = ICloneIndex(output_path=output_path, rename=rename)
+  extractedFragments = CloneIndex.extractedFragments # return set
+  
+  # DBSCAN in CodeFragments
 
-  '''
+  print(sorted(extractedFragments.keys()))
+  for Index in sorted(extractedFragments.keys()):
+    log.log("[analysis] Index : %d", Index)
+    log.log("           Object   : %s", extractedFragments[Index])
+    
+  detectedCloneSets = DBscan(extractedFragments).detectedCloneSets
+  # @TODO
+  # 대표 Core Fragment 추출 알고리즘 추가
 
-  '''
-
-  # DBSCAN in CodeFragments``
-
+  # # Line 별 Core-Edge 관계 및 해싱 출력 코드
+  # for Index in detectedCloneSets.keys():
+  #   if detectedCloneSets[Index]:
+  #     print("\\" + "-"*7,Index)
+  #     for Group in detectedCloneSets[Index]:
+  #       if len(Group.core):
+  #         for core in Group.core:
+  #           print("\t\\[Core]" + "-"*7, format(core.simhash, '#066b'), id(core))
+  #           # print(core.content)
+  #       if len(Group.edge):
+  #         for edge in Group.edge:
+  #           print("\t\\[Edge]" + "-"*7, format(edge.simhash, '#066b'), id(edge))
+  #           # print(edge.content)
+  #       if len(Group.core) + len(Group.edge):
+  #         print("\t" + "-"*66)
 
   # Export one code in each Groups
 
-
-
-
-
 if __name__ == '__main__':
-
   main()
