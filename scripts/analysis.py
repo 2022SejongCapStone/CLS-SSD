@@ -26,8 +26,10 @@ import sys
 from util.log import logger
 from util.ICloneIndex import ICloneIndex
 from util.DBscan import DBscan
+from util.GenOutput import GenOutput
 import time
 
+log = logger(False)
 absolute_root_path = ""
   
 def usage():
@@ -59,9 +61,9 @@ def main():
   clone_grouping = sys.argv[4]
   rename = "consistent" if sys.argv[5] == "generous" else "blind"
   source_path = sys.argv[6]
-  output_path = sys.argv[7]
+  # output_path = sys.argv[7]
+  output_path = os.path.abspath(os.path.join(absolute_root_path, "system"))
 
-  log = logger(False)
   log.log("Argument")
   log.log("  language         : %s", language)
   log.log("  granularity      : %s", granularity)
@@ -90,16 +92,12 @@ def main():
   extractedFragments = CloneIndex.extractedFragments # return set
   
   # DBSCAN in CodeFragments
-
-  print(sorted(extractedFragments.keys()))
   for Index in sorted(extractedFragments.keys()):
     log.log("[analysis] Index : %d", Index)
     log.log("           Object   : %s", extractedFragments[Index])
     
   detectedCloneSets = DBscan(extractedFragments).detectedCloneSets
-  # @TODO
-  # 대표 Core Fragment 추출 알고리즘 추가
-
+  
   # # Line 별 Core-Edge 관계 및 해싱 출력 코드
   # for Index in detectedCloneSets.keys():
   #   if detectedCloneSets[Index]:
@@ -117,6 +115,9 @@ def main():
   #         print("\t" + "-"*66)
 
   # Export one code in each Groups
+  Writer = GenOutput()
+  Writer.ParseCloneSets(detectedCloneSets)
+  Writer.write(absolute_root_path)
 
 if __name__ == '__main__':
   main()
