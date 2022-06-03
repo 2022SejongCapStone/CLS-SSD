@@ -1,7 +1,7 @@
 from matplotlib.pyplot import get
 from AdditiveElgamal import construct_additive, AdditiveElgamalKey
 import json
-
+import pickle
 from Crypto.Util.number import getRandomRange, long_to_bytes, bytes_to_long
 from os import urandom
 from sys import getsizeof
@@ -75,11 +75,11 @@ print(privkey._decrypt(enc_HD))
 '''
 
 ##### GET PUB KEY from server, .JSON from analyze.py
-with open('key.json','r') as f:
+with open('key.json','r') as f:  ## TO DO : get from server and store in pickle
     key_json = json.load(f)
 
-with open('../../system/test.json') as f:
-    obj = json.load(f)
+with open('../../system/test.p','rb') as f:
+    obj = pickle.load(f)
 
 pubkey = construct_additive((key_json['p'], key_json['g'], key_json['y']))
 
@@ -94,7 +94,7 @@ enc_server_simhash = encrypt_simhash(pubkey,server_simhash)
 #Start Comparing process
 enc_HD_dict = {} # k,v = reprisentative_id , enc_HD
 for idx, val in obj.items(): 
-    if not (int(idx) == server_idx):                                                 # JSON in STR , LATER USE PICKLE instead
+    if not (idx == server_idx):                                                 # JSON in STR , LATER USE PICKLE instead
         continue
     for reprisentative_cfid, cloneclass in val.items():
         for cfid, code_fragment in cloneclass.items():
