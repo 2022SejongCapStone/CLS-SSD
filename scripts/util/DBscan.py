@@ -1,14 +1,8 @@
 import collections
-from .CodeFragment import CodeFragment
 from .log import logger
+from .Cluster import Cluster
 
 log = logger(False)
-
-class Cluster:
-  def __init__(self):
-    self.count = 0
-    self.core = set()
-    self.edge = set()
 
 class DBscan:
   def __init__(self, S:dict, eps:int=13, minPts:int=2):
@@ -75,10 +69,6 @@ class DBscan:
         # Fragment 집합 S에서 다른 코드들을 확인하는 과정
         # 전수 조사
         for FragmentInGroup in S:
-          # 자기 자신은 비교하지 않는다.
-          if FragmentInGroup == FragmentInNeighbor:
-            continue
-
           if self.getHammingDistance(FragmentInNeighbor.simhash, FragmentInGroup.simhash) <= eps:
             # 거리가 eps 보다 작은 경우 Count는 늘리되,
             # 방문하지 않은 Fragment만 Queue에 추가한다.
@@ -90,17 +80,18 @@ class DBscan:
         # eps 이하인 다른 Fragment가 minPts개 이상일 경우
         # `core`에 추가한다.
         if Count >= minPts:
-          newCluster.core.add(FragmentInNeighbor)
+          newCluster.core.append(FragmentInNeighbor)
 
         # 만약 eps 이하인 다른 Fragment가 minPts개 미만이고
         # 0이 아니라면 ( 0 < Count < minPts )
         # `edge` 그룹에 추가한다.
         elif Count != 0:
-          newCluster.edge.add(FragmentInNeighbor)
+          newCluster.edge.append(FragmentInNeighbor)
         
         # eps안에 어떤 Fragment도 없는 outlier Fragment는
         # Cluster에서 제외된다( 포함시키지 않음 ).
       
       # 한번 Queue를 넣고 반복을 돌렸을 때 나온 Cluster 하나를
       # Index(line)의 새로운 그룹으로 추가한다.
+
       self.detectedCloneSets[Index].append(newCluster)
