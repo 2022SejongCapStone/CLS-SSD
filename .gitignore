@@ -1,2 +1,5 @@
 __pycache__
 runcmd.txt
+system/
+run.sh
+.vscode
