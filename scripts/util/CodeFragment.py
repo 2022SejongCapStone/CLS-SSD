@@ -3,16 +3,19 @@ from Crypto.Util.number import bytes_to_long
 from .log import logger
 import re
 import hashlib
+import itertools
 
 log = logger(False)
 
 class CodeFragment:
   IndexBuilder = {}
+  PrimaryKey = itertools.count()
   def __init__(self,file,endline,startline,content):
     self.file = file
     self.startline = startline
     self.endline = endline
     self.content = content
+    self.id = next(CodeFragment.PrimaryKey)
     self.tokenizer()
     self.getSimHash()
   
