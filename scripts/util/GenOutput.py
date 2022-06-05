@@ -30,31 +30,26 @@ class GenOutput:
 
       # 만약 Cluster의 core부분이 없다면? 
       if len(Cluster.core) != 0:
-        
         # @TODO 대표 Fragment 추출 알고리즘 추가
         # 현재는 그냥 random.choice로 하나를 뽑아냄.
         RepresentationFragment = random.choice(Cluster.core)
         self.output[LineIndex][RepresentationFragment.id] = dict()
 
         for coreInCluster in Cluster.core:
-          self.output[LineIndex][RepresentationFragment.id] = {
-            coreInCluster.id : [
-              coreInCluster.file, coreInCluster.startline,
-              coreInCluster.endline, coreInCluster.simhash
-            ]
-          }
+          self.output[LineIndex][RepresentationFragment.id][coreInCluster.id] = [
+            coreInCluster.file, coreInCluster.startline,
+            coreInCluster.endline, coreInCluster.simhash
+          ]
       
       if len(Cluster.edge) != 0 and RepresentationFragment == None:
         RepresentationFragment = random.choice(Cluster.edge)
-        self.output[LineIndex][RepresentationFragment.id] = list()
+        self.output[LineIndex][RepresentationFragment.id] = dict()
 
         for edgeInCluster in Cluster.edge:
-          self.output[LineIndex][RepresentationFragment.id] = {
-            edgeInCluster.id : [
-              edgeInCluster.file, edgeInCluster.startline,
-              edgeInCluster.endline, edgeInCluster.simhash
-            ]
-          }
+          self.output[LineIndex][RepresentationFragment.id][edgeInCluster.id] = [
+            edgeInCluster.file, edgeInCluster.startline,
+            edgeInCluster.endline, edgeInCluster.simhash
+          ]
 
   def ParseCloneSets(self, CloneSets:dict):
    
