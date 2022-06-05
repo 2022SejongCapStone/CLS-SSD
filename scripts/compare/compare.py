@@ -1,4 +1,3 @@
-from matplotlib.pyplot import get
 from AdditiveElgamal import construct_additive, AdditiveElgamalKey
 import json
 import pickle
