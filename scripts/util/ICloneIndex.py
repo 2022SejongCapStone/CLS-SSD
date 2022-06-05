@@ -15,8 +15,9 @@ class ICloneIndex:
     expected return : 각 소스코드별 simhash가 담긴 객체 set
     '''
     
-    with open(XMLfile, 'r') as f:
-      soup = bf(f, features="html.parser")
+    with open(XMLfile, 'r', encoding='ISO-8859-1') as f:
+      d = f.read()
+      soup = bf(d, features="html.parser")
 
     for source in soup.findAll('source'): 
       _start = source['startline']
