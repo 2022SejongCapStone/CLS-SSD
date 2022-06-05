@@ -105,12 +105,10 @@ def main():
   #     for Group in detectedCloneSets[Index]:
   #       if len(Group.core):
   #         for core in Group.core:
-  #           print("\t\\[Core]" + "-"*7, format(core.simhash, '#066b'), id(core))
-  #           # print(core.content)
+  #           print(f"\t\\[Core {core.id}]" + "-"*7, format(core.simhash, '#066b'))
   #       if len(Group.edge):
   #         for edge in Group.edge:
-  #           print("\t\\[Edge]" + "-"*7, format(edge.simhash, '#066b'), id(edge))
-  #           # print(edge.content)
+  #           print(f"\t\\[Edge {edge.id}]" + "-"*7, format(edge.simhash, '#066b'))
   #       if len(Group.core) + len(Group.edge):
   #         print("\t" + "-"*66)
 
